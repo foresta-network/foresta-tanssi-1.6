@@ -14,10 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Tanssi.  If not, see <http://www.gnu.org/licenses/>
 
-use std::fmt;
-use std::fmt::format;
-use staging_xcm::latest::{MaybeErrorCode, Response};
 use crate::assert_expected_events;
+use staging_xcm::latest::{MaybeErrorCode, Response};
 use {
     crate::common::{
         dummy_boot_nodes, empty_genesis_data, run_to_session,
@@ -45,8 +43,12 @@ const PARATHREAD_ID: u32 = 3333;
 const ROCOCO_ED: u128 = rococo_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
 const BUY_EXECUTION_COST: u128 = dancebox_runtime::xcm_config::XCM_BUY_EXECUTION_COST_ROCOCO;
 // Difference between BUY_EXECUTION_COST and the actual cost that depends on the weight of the XCM
-// message, gets refunded.
-const BUY_EXECUTION_REFUND: u128 = 3659013;
+// message, gets refunded on successful execution of core buying extrinsic.
+const BUY_EXECUTION_REFUND: u128 = 3668107;
+// Difference between BUY_EXECUTION_COST and the actual cost that depends on the weight of the XCM
+// message, gets refunded on un-successful execution of core buying extrinsic.
+const BUY_EXECUTION_REFUND_ON_FAILURE: u128 = 1334797;
+
 const PLACE_ORDER_WEIGHT_AT_MOST: Weight = Weight::from_parts(1_000_000_000, 100_000);
 
 #[test]
@@ -179,6 +181,22 @@ fn assert_relay_order_event_not_emitted() {
     }
 }
 
+fn assert_xcm_notification_event_not_emitted() {
+    type RuntimeEvent = <Dancebox as Chain>::RuntimeEvent;
+
+    let events = <Dancebox as Chain>::events();
+    for event in events {
+        match event {
+            RuntimeEvent::XcmCoreBuyer(
+                pallet_xcm_core_buyer::Event::ReceivedBuyCoreXCMResult { .. },
+            ) => {
+                panic!("Event should not have been emitted: {:?}", event);
+            }
+            _ => (),
+        }
+    }
+}
+
 /// Get parathread tank address in relay chain. This is derived from the Dancebox para id and the
 /// parathread para id.
 fn get_parathread_tank_relay_address() -> AccountId32 {
@@ -238,6 +256,10 @@ fn xcm_core_buyer_zero_balance() {
         assert_relay_order_event_not_emitted();
         assert_eq!(balance_before, balance_after);
     });
+
+    Dancebox::execute_with(|| {
+        assert_xcm_notification_event_not_emitted();
+    });
 }
 
 #[test]
@@ -295,7 +317,7 @@ fn xcm_core_buyer_only_enough_balance_for_buy_execution() {
                     }
                 ) => {
                     para_id: *para_id == ParaId::from(PARATHREAD_ID),
-                    response: *response == Response::ExecutionResult(None),
+                    response: *response != Response::DispatchResult(MaybeErrorCode::Success),
                 },
             ]
         );
@@ -361,6 +383,24 @@ fn xcm_core_buyer_enough_balance_except_for_existential_deposit() {
             ]
         );
         assert_eq!(balance_after, 0);
+    });
+
+    Dancebox::execute_with(|| {
+        type RuntimeEvent = <Dancebox as Chain>::RuntimeEvent;
+        assert_expected_events!(
+            Dancebox,
+            vec![
+                RuntimeEvent::XcmCoreBuyer(
+                    pallet_xcm_core_buyer::Event::ReceivedBuyCoreXCMResult {
+                        para_id,
+                        response,
+                    }
+                ) => {
+                    para_id: *para_id == ParaId::from(PARATHREAD_ID),
+                    response: *response == Response::DispatchResult(MaybeErrorCode::Success),
+                },
+            ]
+        );
     });
 }
 
@@ -437,7 +477,7 @@ fn xcm_core_buyer_enough_balance() {
                     }
                 ) => {
                     para_id: *para_id == ParaId::from(PARATHREAD_ID),
-                    response: *response == Response::ExecutionResult(None),
+                    response: *response == Response::DispatchResult(MaybeErrorCode::Success),
                 },
             ]
         );
@@ -474,7 +514,7 @@ fn xcm_core_buyer_core_too_expensive() {
                 RuntimeEvent::Balances(
                     pallet_balances::Event::Deposit {
                         who,
-                        amount: BUY_EXECUTION_REFUND,
+                        amount: BUY_EXECUTION_REFUND_ON_FAILURE,
                     }
                 ) => {
                     who: *who == parathread_tank_in_relay,
@@ -485,7 +525,7 @@ fn xcm_core_buyer_core_too_expensive() {
         assert_relay_order_event_not_emitted();
         assert_eq!(
             balance_after,
-            balance_before + BUY_EXECUTION_REFUND - BUY_EXECUTION_COST
+            balance_before + BUY_EXECUTION_REFUND_ON_FAILURE - BUY_EXECUTION_COST
         );
     });
 
@@ -502,7 +542,7 @@ fn xcm_core_buyer_core_too_expensive() {
                     }
                 ) => {
                     para_id: *para_id == ParaId::from(PARATHREAD_ID),
-                    response: *response == Response::ExecutionResult(None),
+                    response: *response != Response::DispatchResult(MaybeErrorCode::Success),
                 },
             ]
         );
@@ -544,7 +584,7 @@ fn xcm_core_buyer_set_max_core_price() {
                 RuntimeEvent::Balances(
                     pallet_balances::Event::Deposit {
                         who,
-                        amount: BUY_EXECUTION_REFUND,
+                        amount: BUY_EXECUTION_REFUND_ON_FAILURE,
                     }
                 ) => {
                     who: *who == parathread_tank_in_relay,
@@ -555,7 +595,25 @@ fn xcm_core_buyer_set_max_core_price() {
         assert_relay_order_event_not_emitted();
         assert_eq!(
             balance_after,
-            ROCOCO_ED + 1 + BUY_EXECUTION_REFUND + spot_price
+            ROCOCO_ED + 1 + BUY_EXECUTION_REFUND_ON_FAILURE + spot_price
+        );
+    });
+
+    Dancebox::execute_with(|| {
+        type RuntimeEvent = <Dancebox as Chain>::RuntimeEvent;
+        assert_expected_events!(
+            Dancebox,
+            vec![
+                RuntimeEvent::XcmCoreBuyer(
+                    pallet_xcm_core_buyer::Event::ReceivedBuyCoreXCMResult {
+                        para_id,
+                        response,
+                    }
+                ) => {
+                    para_id: *para_id == ParaId::from(PARATHREAD_ID),
+                    response: *response != Response::DispatchResult(MaybeErrorCode::Success),
+                },
+            ]
         );
     });
 }
