@@ -48,7 +48,10 @@ frame-system-rpc-runtime-api = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-contracts = { workspace = true }
+pallet-insecure-randomness-collective-flip = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-membership = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-root-testing = { workspace = true }
@@ -58,6 +61,7 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-tx-pause = { workspace = true }
+pallet-uniques = { workspace = true }
 pallet-utility = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -97,6 +101,20 @@ cumulus-primitives-utility = { workspace = true }
 parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 
+# Local Dependencies
+primitives = { package = "foresta-primitives", path = "../../../primitives/frst_primitives", default-features = false }
+
+
+# Custom
+pallet-kyc = { workspace = true }
+pallet-carbon-credits = { workspace = true }
+pallet-carbon-credits-pool = { workspace = true }
+pallet-dex = { workspace = true }
+pallet-foresta-collectives = { workspace = true }
+orml-tokens = { workspace = true }
+orml-traits = { workspace = true }
+
+
 # Benchmarking
 frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
@@ -128,17 +146,26 @@ std = [
 	"frame-try-runtime/std",
 	"log/std",
 	"nimbus-primitives/std",
+	"orml-tokens/std",
+	"orml-traits/std",
 	"pallet-asset-rate/std",
 	"pallet-assets/std",
 	"pallet-async-backing/std",
 	"pallet-author-inherent/std",
 	"pallet-balances/std",
+	"pallet-carbon-credits/std",
+	"pallet-carbon-credits-pool/std",
 	"pallet-cc-authorities-noting/std",
+	"pallet-contracts/std",
+	"pallet-dex/std",
 	"pallet-foreign-asset-creator/std",
+	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-maintenance-mode/std",
+	"pallet-membership/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
 	"pallet-multisig/std",
+	"pallet-kyc/std",
 	"pallet-proxy/std",
 	"pallet-root-testing/std",
 	"pallet-session/std",
@@ -147,6 +174,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-tx-pause/std",
+	"pallet-uniques/std",
 	"pallet-utility/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-executor-utils/std",

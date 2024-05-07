@@ -177,6 +177,11 @@ fn testnet_genesis(
             orchestrator_para_id: ORCHESTRATOR,
             ..Default::default()
         },
+        assets: Default::default(),
+        membership: container_chain_template_simple_runtime::MembershipConfig {
+			members: [].to_vec().try_into().unwrap(),
+			phantom: Default::default(),
+		},
         migrations: MigrationsConfig::default(),
         maintenance_mode: MaintenanceModeConfig {
             start_in_maintenance_mode: false,
@@ -187,6 +192,11 @@ fn testnet_genesis(
         transaction_payment: Default::default(),
         tx_pause: Default::default(),
         system: Default::default(),
+        tokens: container_chain_template_simple_runtime::TokensConfig { balances: [].to_vec() },
+        kyc_pallet: container_chain_template_simple_runtime::KYCPalletConfig {
+			members: [].to_vec().try_into().unwrap(),
+			phantom: Default::default(),
+		},
     };
 
     serde_json::to_value(g).unwrap()

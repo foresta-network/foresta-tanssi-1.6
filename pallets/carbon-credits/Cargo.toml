@@ -1,0 +1,58 @@
+[package]
+name = 'pallet-carbon-credits'
+version = '0.0.1'
+authors = ['Foresta <https://Foresta.org>']
+edition = '2021'
+homepage = 'https://Foresta.org'
+license = 'MIT'
+repository = 'https://github.com/Foresta/Foresta-node'
+description = "Module to tokenize carbon credits"
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+log = { version = "0.4.17", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-uniques = { workspace = true }
+scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+# Local dependencies
+pallet-assets = { workspace = true }
+primitives = { package = 'foresta-primitives', path = '../../primitives/frst_primitives/', default-features = false }
+
+# Benchmarking
+frame-benchmarking = { workspace = true }
+pallet-membership = { workspace = true }
+pallet-timestamp = { workspace = true }
+sp-core = { workspace = true }
+
+[dev-dependencies]
+serde = { version = "1.0.188", features = ["derive"], default-features = false }
+sp-io = { workspace = true }
+
+[features]
+default = ['std']
+std = [
+  'log/std',
+  'codec/std',
+  'frame-support/std',
+  'frame-system/std',
+  'sp-std/std',
+  'scale-info/std',
+  'pallet-assets/std',
+  'pallet-balances/std',
+  'sp-runtime/std',
+  'pallet-uniques/std',
+  'pallet-membership/std',
+  'pallet-timestamp/std',
+  'sp-core/std'
+]
+runtime-benchmarks = [
+  "frame-benchmarking/runtime-benchmarks",
+]

@@ -1,0 +1,57 @@
+[package]
+name = 'pallet-carbon-credits-pool'
+version = '0.0.1'
+authors = ['Foresta <https://Foresta.org>']
+edition = '2018'
+homepage = 'https://Foresta.org'
+license = 'MIT'
+repository = 'https://github.com/Foresta/Foresta-node'
+description = "Create pools for CarbonCredits"
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+bs58 = { default-features = false, version = '0.4.0', features = ['alloc'] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-carbon-credits = { package = 'pallet-carbon-credits', path = '../carbon-credits', default-features = false }
+pallet-uniques = { workspace = true }
+primitives = { package = 'foresta-primitives', path = '../../primitives/frst_primitives/', default-features = false }
+scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+# Benchmarking
+frame-benchmarking = { workspace = true }
+pallet-membership = { workspace = true }
+pallet-timestamp = { workspace = true }
+sp-core = { workspace = true }
+
+[dev-dependencies]
+serde = { version = "1.0.188", features = ["derive"], default-features = false }
+sp-io = { workspace = true }
+
+[features]
+default = ['std']
+std = [
+  "serde/std",
+  'codec/std',
+  'frame-support/std',
+  'frame-system/std',
+  'sp-std/std',
+  'bs58/std',
+  'scale-info/std',
+  'pallet-assets/std',
+  'pallet-balances/std',
+  'sp-runtime/std',
+  'pallet-uniques/std',
+  'pallet-carbon-credits/std',
+  'pallet-membership/std',
+]
+runtime-benchmarks = [
+  "frame-benchmarking/runtime-benchmarks",
+]
