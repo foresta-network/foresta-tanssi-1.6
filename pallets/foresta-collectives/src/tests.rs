@@ -289,6 +289,13 @@ fn it_works_for_join_collective() {
 
 		assert_ok!(ForestaCollectives::join_collective(RawOrigin::Signed(applicant).into(),collective_id,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 		assert_eq!(MembersCount::<Test>::get(collective_id),2);
+
+		// member can edit profile
+		assert_ok!(ForestaCollectives::edit_profile(RawOrigin::Signed(applicant).into(),2,"NewProfile".as_bytes().to_vec().try_into().unwrap()));
+
+		// manager can't
+		assert_noop!(ForestaCollectives::edit_profile(RawOrigin::Signed(manager).into(),2,"NewProfile".as_bytes().to_vec().try_into().unwrap()),
+	Error::<Test>::NotAllowedToEditProfile);
 	});
 }
 

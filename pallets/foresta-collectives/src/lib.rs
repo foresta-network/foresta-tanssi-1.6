@@ -415,6 +415,7 @@ pub mod pallet {
 			priority: VotePriority,
 			vote_cast: bool,
 		},
+		ProfileEdited { account: T::AccountId },
 	}
 
 	// Errors inform users that something went wrong.
@@ -430,6 +431,8 @@ pub mod pallet {
 		MemberAlreadyExists,
 		/// Member Does Not Exist
 		MemberDoesNotExist,
+		/// NotAllowedToEditProfile
+		NotAllowedToEditProfile,
 		/// Collective Does Not exist
 		CollectiveDoesNotExist,
 		/// Not Allowed To Manage Membership
@@ -911,6 +914,24 @@ pub mod pallet {
 				},
 				Err(_) => Err(Error::<T>::NotAllowedToManageMembership.into()),
 			}
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
+		pub fn edit_profile(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+			new_hash: BoundedVec<u8, T::MaxProfileLength>,
+		) -> DispatchResult {
+			let member = ensure_signed(origin)?;
+			// Check if member
+			Self::check_kyc_approval(&member)?;
+			// Check if member is the one intiating edit
+			ensure!(member == account,Error::<T>::NotAllowedToEditProfile);
+			Self::do_set_profile(account.clone(),new_hash);
+
+			Self::deposit_event(Event::ProfileEdited{ account });
+			Ok(())
 		}
 	}
 
