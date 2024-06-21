@@ -201,6 +201,7 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 		type MaxNumCollectives: Get<u32>;
 		type MaxStringLength: Get<u32>;
+		type MaxProfileLength: Get<u32>;
 		type MaxNumManagers: Get<u32>;
 		type MaxConcurrentVotes: Get<u32>;
 		type MaxProjectsPerCollective: Get<u32>;
@@ -230,6 +231,16 @@ pub mod pallet {
 		Blake2_128Concat,
 		<T as pallet::Config>::CollectiveId,
 		Collective<T>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_profile)]
+	pub(super) type Profile<T:Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		BoundedVec<u8, T::MaxProfileLength>,
 		OptionQuery,
 	>;
 
@@ -586,7 +597,7 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
-		pub fn join_collective(origin: OriginFor<T>, collective_id: <T as pallet::Config>::CollectiveId) -> DispatchResult {
+		pub fn join_collective(origin: OriginFor<T>, collective_id: <T as pallet::Config>::CollectiveId, hash: BoundedVec<u8, T::MaxProfileLength>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			Self::check_kyc_approval(&member)?;
 			ensure!(!Self::check_member(collective_id,member.clone()),Error::<T>::MemberAlreadyExists);
@@ -595,6 +606,8 @@ pub mod pallet {
 			let uid2 = uid.checked_add(1).ok_or(ArithmeticError::Overflow)?;
 			Members::<T>::insert(collective_id.clone(),member.clone(),true);
 			MembersCount::<T>::insert(collective_id.clone(),uid2);
+
+			Self::do_set_profile(member.clone(),hash);
 			
 			Self::deposit_event(Event::MemberAdded{ collective_id, member, uid });
 
@@ -603,7 +616,8 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_member())]
-		pub fn add_member(origin: OriginFor<T>, collective_id: <T as pallet::Config>::CollectiveId, member: T::AccountId) -> DispatchResult {
+		pub fn add_member(origin: OriginFor<T>, collective_id: <T as pallet::Config>::CollectiveId, member: T::AccountId,
+		hash: BoundedVec<u8, T::MaxProfileLength>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Self::get_collective(collective_id).is_some(),Error::<T>::CollectiveDoesNotExist);
 			ensure!(!Members::<T>::contains_key(collective_id.clone(),&member.clone()), Error::<T>::MemberAlreadyExists);
@@ -615,7 +629,7 @@ pub mod pallet {
 					let uid2 = uid.checked_add(1).ok_or(ArithmeticError::Overflow)?;
 					Members::<T>::insert(collective_id.clone(),member.clone(),true);
 					MembersCount::<T>::insert(collective_id.clone(),uid2);
-			
+					Self::do_set_profile(member.clone(),hash);
 					Self::deposit_event(Event::MemberAdded{ collective_id, member, uid });
 
 					Ok(())
@@ -1022,6 +1036,12 @@ pub mod pallet {
 		/// The account ID of the ForestaCollectives pallet
 		pub fn account_id() -> T::AccountId {
 			<T as pallet::Config>::PalletId::get().into_account_truncating()
+		}
+
+		// Set profile
+
+		pub fn do_set_profile(account: T::AccountId, hash: BoundedVec<u8, T::MaxProfileLength>) {
+			Profile::<T>::insert(&account,&hash);
 		}
 
 	}

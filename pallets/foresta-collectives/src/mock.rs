@@ -65,6 +65,7 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type RuntimeTask = RuntimeTask;
 }
 
 parameter_types! {
@@ -324,6 +325,7 @@ impl pallet_foresta_collectives::Config for Test {
 	type PalletId = ForestaCollectivesPalletId;
     type MaxNumManagers = ConstU32<5>;
     type MaxStringLength = ConstU32<64>;
+	type MaxProfileLength = ConstU32<512>;
     type MaxConcurrentVotes = ConstU32<5>;
     type MaxProjectsPerCollective = ConstU32<5>;
 	type MaxNumCollectives = ConstU32<10>;

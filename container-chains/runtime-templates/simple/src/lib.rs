@@ -224,7 +224,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("container-chain-template"),
     impl_name: create_runtime_str!("container-chain-template"),
     authoring_version: 1,
-    spec_version: 700,
+    spec_version: 701,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -388,7 +388,7 @@ impl pallet_balances::Config for Runtime {
     type MaxFreezes = ConstU32<0>;
     type RuntimeHoldReason = RuntimeHoldReason;
     type RuntimeFreezeReason = RuntimeFreezeReason;
-    type MaxHolds = ConstU32<0>;
+    type MaxHolds = ConstU32<1>;
     type WeightInfo = weights::pallet_balances::SubstrateWeight<Runtime>;
 }
 
@@ -872,6 +872,7 @@ parameter_types! {
     pub const ForestaCollectivesPalletId: PalletId = PalletId(*b"for/coll");
     pub const Managers: u32 = 5;
     pub const MaxString: u32 = 64;
+    pub const MaxProfile: u32 = 512;
     pub const MaxNumCollectives: u32 = 200;
     pub const MaxVotesPerBlock: u32 = 16;
     pub const VoteDuration: BlockNumber = 200;
@@ -889,6 +890,7 @@ impl pallet_foresta_collectives::Config for Runtime {
     type PalletId = ForestaCollectivesPalletId;
     type MaxNumManagers = Managers;
     type MaxStringLength = MaxString;
+    type MaxProfileLength = MaxProfile;
     type MaxConcurrentVotes = MaxVotesPerBlock;
     type MaxProjectsPerCollective = MaxPPC;
     type VotingDuration = VoteDuration;

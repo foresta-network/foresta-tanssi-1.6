@@ -204,7 +204,7 @@ fn it_fails_to_join_collective() {
 
 		let member = 4;// Not KYC'd KYCAuthorisationFailed
 
-		assert_noop!(ForestaCollectives::join_collective(RawOrigin::Signed(member).into(),collective_id),
+		assert_noop!(ForestaCollectives::join_collective(RawOrigin::Signed(member).into(),collective_id,"ProfileHash".as_bytes().to_vec().try_into().unwrap()),
 		Error::<Test>::KYCAuthorisationFailed);
 	});
 }
@@ -221,7 +221,7 @@ fn it_works_for_adding_members_to_collective() {
 
 		let member = 2;
 
-		assert_ok!(ForestaCollectives::join_collective(RawOrigin::Signed(member).into(),collective_id));
+		assert_ok!(ForestaCollectives::join_collective(RawOrigin::Signed(member).into(),collective_id,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 	});
 }
 
@@ -238,7 +238,7 @@ fn it_fails_to_add_members_to_collective() {
 		let member = 2;
 		let not_collective_id = 1;
 
-		assert_noop!(ForestaCollectives::join_collective(RawOrigin::Signed(member).into(),not_collective_id),
+		assert_noop!(ForestaCollectives::join_collective(RawOrigin::Signed(member).into(),not_collective_id,"ProfileHash".as_bytes().to_vec().try_into().unwrap()),
 		Error::<Test>::CollectiveDoesNotExist);
 	});
 }
@@ -255,7 +255,7 @@ fn it_works_for_add_collective_and_manager_adds_member() {
 		let member = 2;
 		let collective_id = 0;
 
-		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member));
+		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 	});
 }
 
@@ -272,7 +272,7 @@ fn it_fails_for_manager_adds_member() {
 
 		let not_manager = 3;
 
-		assert_noop!(ForestaCollectives::add_member(RawOrigin::Signed(not_manager).into(),collective_id,member),
+		assert_noop!(ForestaCollectives::add_member(RawOrigin::Signed(not_manager).into(),collective_id,member,"ProfileHash".as_bytes().to_vec().try_into().unwrap()),
 		Error::<Test>::NotAllowedToManageMembership);
 	});
 }
@@ -287,7 +287,7 @@ fn it_works_for_join_collective() {
 
 		let applicant = 2;
 
-		assert_ok!(ForestaCollectives::join_collective(RawOrigin::Signed(applicant).into(),collective_id));
+		assert_ok!(ForestaCollectives::join_collective(RawOrigin::Signed(applicant).into(),collective_id,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 		assert_eq!(MembersCount::<Test>::get(collective_id),2);
 	});
 }
@@ -309,10 +309,10 @@ fn it_works_for_init_project_approval_vote() {
 		let project_tokens_to_mint: u32 = 100;
 
 		// Manager adds member as a member of the collective
-		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member));
+		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 
 		// Manager adds member2 as a member of the collective
-		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member2));
+		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member2,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 		// Manager creates a project
 
 		create_project::<Test>(manager, false);
@@ -401,10 +401,10 @@ fn it_works_for_create_proposal() {
 		let vote_id = 0;
 
 		// Manager adds member as a member of the collective
-		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member));
+		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 
 		// Manager adds member2 as a member of the collective
-		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member2));
+		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member2,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 
 		// member creates proposal
 		assert_ok!(ForestaCollectives::create_proposal(RawOrigin::Signed(member).into(),collective_id,"Title".as_bytes().to_vec().try_into().unwrap(),

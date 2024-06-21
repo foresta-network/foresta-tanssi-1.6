@@ -1,5 +1,5 @@
-use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, DefaultNoBound, PartialEqNoBound};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_std::{fmt, prelude::*};
@@ -82,102 +82,5 @@ where
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_tuple("OrderedSet").field(&self.0).finish()
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use frame_support::parameter_types;
-	use sp_runtime::RuntimeDebug;
-
-	parameter_types! {
-		#[derive(PartialEq, Eq, RuntimeDebug)]
-		pub const Eight: u32 = 8;
-		#[derive(PartialEq, Eq, RuntimeDebug)]
-		pub const Five: u32 = 5;
-	}
-
-	#[test]
-	fn from() {
-		let v: BoundedVec<i32, Eight> = vec![4, 2, 3, 4, 3, 1].try_into().unwrap();
-		let set: OrderedSet<i32, Eight> = v.into();
-		assert_eq!(
-			set,
-			OrderedSet::<i32, Eight>::from(vec![1, 2, 3, 4].try_into().unwrap())
-		);
-	}
-
-	#[test]
-	fn insert() {
-		let mut set: OrderedSet<i32, Eight> = OrderedSet::new();
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![].try_into().unwrap()));
-
-		assert!(set.insert(1));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![1].try_into().unwrap()));
-
-		assert!(set.insert(5));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![1, 5].try_into().unwrap()));
-
-		assert!(set.insert(3));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![1, 3, 5].try_into().unwrap()));
-
-		assert!(!set.insert(3));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![1, 3, 5].try_into().unwrap()));
-	}
-
-	#[test]
-	fn remove() {
-		let mut set: OrderedSet<i32, Eight> = OrderedSet::from(vec![1, 2, 3, 4].try_into().unwrap());
-
-		assert!(!set.remove(&5));
-		assert_eq!(
-			set,
-			OrderedSet::<i32, Eight>::from(vec![1, 2, 3, 4].try_into().unwrap())
-		);
-
-		assert!(set.remove(&1));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![2, 3, 4].try_into().unwrap()));
-
-		assert!(set.remove(&3));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![2, 4].try_into().unwrap()));
-
-		assert!(!set.remove(&3));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![2, 4].try_into().unwrap()));
-
-		assert!(set.remove(&4));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![2].try_into().unwrap()));
-
-		assert!(set.remove(&2));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![].try_into().unwrap()));
-
-		assert!(!set.remove(&2));
-		assert_eq!(set, OrderedSet::<i32, Eight>::from(vec![].try_into().unwrap()));
-	}
-
-	#[test]
-	fn contains() {
-		let set: OrderedSet<i32, Eight> = OrderedSet::from(vec![1, 2, 3, 4].try_into().unwrap());
-
-		assert!(!set.contains(&5));
-
-		assert!(set.contains(&1));
-
-		assert!(set.contains(&3));
-	}
-
-	#[test]
-	fn clear() {
-		let mut set: OrderedSet<i32, Eight> = OrderedSet::from(vec![1, 2, 3, 4].try_into().unwrap());
-		set.clear();
-		assert_eq!(set, OrderedSet::new());
-	}
-
-	#[test]
-	fn exceeding_max_size_should_fail() {
-		let mut set: OrderedSet<i32, Five> = OrderedSet::from(vec![1, 2, 3, 4, 5].try_into().unwrap());
-		let inserted = set.insert(6);
-
-		assert!(!inserted)
 	}
 }

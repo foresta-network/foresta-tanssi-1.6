@@ -4,20 +4,19 @@
 
 use super::*;
 use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{tokens::{ConversionFromAssetBalance, PaymentStatus, Pay},ChangeMembers, ConstU32, ConstU64, 
-	ContainsLengthBound, Everything, SortedMembers},
+	construct_runtime, derive_impl, parameter_types,
+	traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		ChangeMembers, ConstU32, ConstU64, ContainsLengthBound, SortedMembers,
+	},
 	PalletId,
 };
 use orml_traits::parameter_type_with_key;
-use sp_core::H256;
 use sp_runtime::{
 	traits::{AccountIdConversion, IdentityLookup},
 	AccountId32, BuildStorage, Permill,
 };
 use sp_std::cell::RefCell;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-
 
 pub type AccountId = AccountId32;
 pub type CurrencyId = u32;
@@ -40,30 +39,11 @@ pub const RID_2: ReserveIdentifier = [2u8; 8];
 
 use crate as tokens;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 thread_local! {
@@ -100,78 +80,12 @@ impl ContainsLengthBound for TenToFourteen {
 	}
 }
 
-pub struct MulBy<N>(PhantomData<N>);
-impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
-	type Error = ();
-	fn from_asset_balance(balance: u64, _asset_id: u32) -> Result<u64, Self::Error> {
-		return balance.checked_mul(N::get()).ok_or(())
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: u32) {}
-}
-
-thread_local! {
-	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
-	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
-	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
-}
-
-/// paid balance for a given account and asset ids
-fn paid(who: u128, asset_id: u32) -> u64 {
-	PAID.with(|p| p.borrow().get(&(who, asset_id)).cloned().unwrap_or(0))
-}
-
-/// reduce paid balance for a given account and asset ids
-fn unpay(who: u128, asset_id: u32, amount: u64) {
-	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
-}
-
-/// set status for a given payment id
-fn set_status(id: u64, s: PaymentStatus) {
-	STATUS.with(|m| m.borrow_mut().insert(id, s));
-}
-
-pub struct TestPay;
-impl Pay for TestPay {
-	type Beneficiary = u128;
-	type Balance = u64;
-	type Id = u64;
-	type AssetKind = u32;
-	type Error = ();
-
-	fn pay(
-		who: &Self::Beneficiary,
-		asset_kind: Self::AssetKind,
-		amount: Self::Balance,
-	) -> Result<Self::Id, Self::Error> {
-		PAID.with(|paid| *paid.borrow_mut().entry((*who, asset_kind)).or_default() += amount);
-		Ok(LAST_ID.with(|lid| {
-			let x = *lid.borrow();
-			lid.replace(x + 1);
-			x
-		}))
-	}
-	fn check_payment(id: Self::Id) -> PaymentStatus {
-		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id) {
-		set_status(id, PaymentStatus::Failure)
-	}
-}
-
 parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
-	pub const ProposalBondMinimum: u64 = 1;
-	pub const ProposalBondMaximum: u64 = 5;
-	pub const SpendPeriod: u64 = 2;
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const GetTokenId: CurrencyId = DOT;
-	pub const MaxApprovals: u32 = 100;
-	pub const SpendPayoutPeriod: u64 = 5;
+	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
 pub type MockCurrencyAdapter = CurrencyAdapter<Runtime, GetTokenId>;
@@ -183,21 +97,23 @@ impl pallet_treasury::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ProposalBondMinimum;
-	type ProposalBondMaximum = ProposalBondMaximum;
-	type SpendPeriod = SpendPeriod;
+	type ProposalBondMinimum = ConstU64<1>;
+	type ProposalBondMaximum = ();
+	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
-	type AssetKind = u32;
-	type Beneficiary = u128;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = TestPay;
-	type BalanceConverter = MulBy<ConstU64<2>>;
-	type PayoutPeriod = SpendPayoutPeriod;
-	type BurnDestination = ();
-	type SpendFunds = ();
+	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
-	type MaxApprovals = MaxApprovals;
-	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>;
+	type SpendFunds = ();
+	type MaxApprovals = ConstU32<100>;
+	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+	type AssetKind = ();
+	type Beneficiary = Self::AccountId;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = PayFromAccount<MockCurrencyAdapter, TreasuryAccount>;
+	type BalanceConverter = UnityAssetBalanceConversion;
+	type PayoutPeriod = ConstU64<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 thread_local! {
