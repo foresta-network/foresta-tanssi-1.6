@@ -1,7 +1,7 @@
 use crate::{mock::*, Config, Error, VoteType, Vote, VoteStatus, MembersCount, VoteCategory, VotePriority};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{tokens::fungibles::{metadata::Inspect as MetadataInspect, Inspect}, OnFinalize, OnInitialize},
+	traits::{tokens::fungibles::{metadata::Inspect as MetadataInspect, Inspect}, OnFinalize, OnInitialize, StorePreimage},
 	BoundedVec,
 };
 use frame_system::RawOrigin;
@@ -11,6 +11,7 @@ use pallet_carbon_credits::{
 use primitives::{Batch, RegistryDetails, RegistryName, Royalty, SDGDetails, SdgType};
 use sp_runtime::Percent;
 use sp_std::convert::TryInto;
+use pallet_scheduler::BoundedCallOf;
 
 /// helper function to generate standard creation details
 
@@ -180,6 +181,12 @@ fn run_to_block(n: u64) {
 		System::on_initialize(System::block_number());
 		ForestaCollectives::on_initialize(System::block_number());
 	}
+}
+
+fn set_balance_proposal(value: u128) -> BoundedCallOf<Test> {
+	let inner = pallet_balances::Call::force_set_balance { who: 42, new_free: value };
+	let outer = RuntimeCall::Balances(inner);
+	Preimage::bound(outer).unwrap()
 }
 
 
@@ -467,7 +474,7 @@ fn it_works_for_create_proposal() {
 
 		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
 
-		//member tries to vote after vote ahs expired
+		//member tries to vote after vote has expired
 
 		run_to_block(121);
 
@@ -475,3 +482,101 @@ fn it_works_for_create_proposal() {
 	Error::<Test>::VoteNotInProgress);
 	});
 }
+
+#[test]
+fn it_works_for_create_proposal2() {
+	new_test_ext().execute_with(|| {
+		let manager = 1;
+		// Root creates collective and adds user 1 as the manager
+		assert_ok!(ForestaCollectives::add_collective(RawOrigin::Root.into(),"Collective1".as_bytes().to_vec().try_into().unwrap(),
+		sp_core::bounded_vec![manager],"Coll1Hash".as_bytes().to_vec().try_into().unwrap()));
+
+		let member = 2;
+		let member2 = 3;
+		let project_id = 0;
+		let group_id = 0;
+		let collective_id = 0;
+		let vote_id = 0;
+
+		// Manager adds member as a member of the collective
+		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
+
+		// Manager adds member2 as a member of the collective
+		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member2,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
+
+		// Check initial balance
+		assert_eq!(Balances::free_balance(42), 0);
+
+		// member creates proposal
+		assert_ok!(ForestaCollectives::propose(RawOrigin::Signed(member).into(),collective_id,
+		set_balance_proposal(100),VoteCategory::WildlifeProtection,VotePriority::Medium));
+
+		let mut vote = Vote::<Test> {
+			yes_votes: 0,
+			no_votes: 0,
+			end: 101,
+			status: VoteStatus::Deciding,
+			vote_type: VoteType::Proposal,
+			category: VoteCategory::WildlifeProtection,
+			priority: VotePriority::Medium,
+			collective_id: Some(collective_id),
+			project_id: None
+		};
+
+		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
+
+		run_to_block(21);
+
+		// member2 votes yes
+
+		assert_ok!(ForestaCollectives::cast_vote(RawOrigin::Signed(member2).into(),vote_id,true));
+
+		vote = Vote::<Test> {
+			yes_votes: 1,
+			no_votes: 0,
+			end: 101,
+			status: VoteStatus::Deciding,
+			vote_type: VoteType::Proposal,
+			category: VoteCategory::WildlifeProtection,
+			priority: VotePriority::Medium,
+			collective_id: Some(collective_id),
+			project_id: None
+		};
+
+		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
+
+		run_to_block(101);
+
+		vote = Vote::<Test> {
+			yes_votes: 1,
+			no_votes: 0,
+			end: 101,
+			status: VoteStatus::Passed,
+			vote_type: VoteType::Proposal,
+			category: VoteCategory::WildlifeProtection,
+			priority: VotePriority::Medium,
+			collective_id: Some(collective_id),
+			project_id: None
+		};
+
+		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
+
+
+		assert!(pallet_scheduler::Agenda::<Test>::get(102)[0].is_some());
+
+		run_to_block(102);
+
+		//assert_eq!(Balances::free_balance(42), 100);
+
+		//member tries to vote after vote has expired
+
+		run_to_block(121);
+
+		assert_noop!(ForestaCollectives::cast_vote(RawOrigin::Signed(member).into(),vote_id,true),
+		Error::<Test>::VoteNotInProgress);
+
+		//assert_eq!(Balances::free_balance(42), 100);
+		
+	});
+}
+

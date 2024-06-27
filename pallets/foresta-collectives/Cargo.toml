@@ -28,6 +28,8 @@ pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-uniques = { workspace = true }
 pallet-membership = { workspace = true }
+pallet-preimage = { workspace = true }
+pallet-scheduler = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-carbon-credits = { workspace = true }
 pallet-carbon-credits-pool = { workspace = true }

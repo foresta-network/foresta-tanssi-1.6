@@ -22,14 +22,23 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use frame_support::{BoundedVec,PalletId};
+	use frame_support::traits::Bounded;
 	use scale_info::TypeInfo;
 	use codec::{FullCodec, MaxEncodedLen, EncodeLike};
 
 	use sp_runtime::{
-		traits::{MaybeSerializeDeserialize,CheckedAdd,AccountIdConversion}
+		traits::{Bounded as ArithBounded, One, MaybeSerializeDeserialize, CheckedAdd,
+			 AccountIdConversion, Saturating}
 		,ArithmeticError, };
 	use sp_std::{fmt::Debug,cmp::{Eq, PartialEq}};
-	use frame_support::traits::Contains;
+	use frame_support::traits::{
+		schedule::{v3::Named as ScheduleNamed, DispatchTime},
+		Contains, QueryPreimage, StorePreimage, LockIdentifier};
+
+	pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
+	pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
+
+	pub(crate) const FORESTA_ID: LockIdentifier = *b"forestac";
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -62,6 +71,15 @@ pub mod pallet {
 		pub title: BoundedVec<u8, T::MaxStringLength>,
 		pub hash: BoundedVec<u8, T::MaxStringLength>,
 		pub vote_id: T::VoteId,
+	}
+
+	#[derive(Clone, Encode, Decode, PartialEq, MaxEncodedLen, Debug, TypeInfo, Eq)]
+	#[scale_info(skip_type_params(T))]
+	pub struct Generic<T:Config> {
+        pub creator: T::AccountId,
+		pub call: BoundedCallOf<T>,
+		pub collective_id: <T as pallet::Config>::CollectiveId,
+		pub proposal_id: T::ProposalId,
 	}
 
 	#[derive(Clone, Encode, Decode, PartialEq, MaxEncodedLen, Debug, TypeInfo, Eq)]
@@ -196,6 +214,14 @@ pub mod pallet {
 			+ Into<u32>
 			+ EncodeLike
 			+ CheckedAdd;
+		type Scheduler: ScheduleNamed<
+			BlockNumberFor<Self>,
+			CallOf<Self>,
+			Self::PalletsOrigin,
+			Hasher = Self::Hashing,
+		>;
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 		/// The ForestaCollectives pallet id
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -266,6 +292,16 @@ pub mod pallet {
 		Blake2_128Concat,
 		T::ProposalId,
 		Proposal<T>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_generic)]
+	pub(super) type Generics<T:Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::VoteId,
+		Generic<T>,
 		OptionQuery,
 	>;
 
@@ -465,6 +501,8 @@ pub mod pallet {
 		InvalidVoteCategory,
 		// Too Many Collectives Associated To Manager
 		TooManyCollectives,
+		// Proposal Not Found
+		ProposalNotFound,
 
 	}
 
@@ -506,6 +544,9 @@ pub mod pallet {
 						},
 						VoteType::SetSellerPayoutAuthority=> {
 							let _ = Self::do_add_validator(*v_id,is_approved);	
+						},
+						VoteType::Proposal=> {
+							let _ = Self::do_schedule_dispatch(*v_id,is_approved);	
 						},
 						_ => ()
 					}
@@ -933,6 +974,65 @@ pub mod pallet {
 			Self::deposit_event(Event::ProfileEdited{ account });
 			Ok(())
 		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
+		pub fn propose(
+			origin: OriginFor<T>,
+			collective_id: <T as pallet::Config>::CollectiveId,
+			proposal: BoundedCallOf<T>,
+			category: VoteCategory, 
+			priority: VotePriority
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Self::get_collective(collective_id).is_some(),Error::<T>::CollectiveDoesNotExist);
+			ensure!(Members::<T>::contains_key(collective_id.clone(),&who.clone()), Error::<T>::MemberDoesNotExist);
+			
+			let uid = Self::votes_count();
+		
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			let final_block = current_block + T::VotingDuration::get();
+
+			ActiveVoting::<T>::try_mutate(final_block, |projects| {
+				projects.try_push(uid).map_err(|_| Error::<T>::MaxVotingExceeded)?;
+				Ok::<(),DispatchError>(())
+			})?;
+
+			let vote_info = Vote::<T> {
+				yes_votes: 0,
+				no_votes: 0,
+				end: final_block,
+				status: VoteStatus::Deciding,
+				category,
+				priority,
+				vote_type: VoteType::Proposal,
+				collective_id: Some(collective_id),
+				project_id: None,
+			};
+
+			let proposal_count = Self::get_proposal_count(collective_id);
+
+			let proposal_info = Generic::<T> {
+				creator: who.clone(),
+				call: proposal,
+				collective_id: collective_id,
+				proposal_id: proposal_count,
+			};
+
+
+			ProjectVote::<T>::insert(uid,&vote_info);
+			Generics::<T>::insert(uid,&proposal_info);
+
+			let uid2 = uid.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
+			VotesCount::<T>::put(uid2);
+
+			let proposal_count2 = proposal_count.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
+
+			ProposalsCount::<T>::insert(collective_id,proposal_count2);
+
+			Ok(())
+		}
 	}
 
 	impl<T:Config> Pallet<T> {
@@ -1065,6 +1165,52 @@ pub mod pallet {
 			Profile::<T>::insert(&account,&hash);
 		}
 
+		// Schedule call dispatch
+
+		pub fn do_schedule_dispatch(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
+
+			if is_approved == true {
+				let generic = Self::get_generic(vote_id).ok_or(Error::<T>::ProposalNotFound)?;
+				let now = frame_system::Pallet::<T>::block_number();
+				let when = now.saturating_add(One::one());
+				let schedule_task_id = (FORESTA_ID, vote_id).encode_into::<_, T::Hashing>();
+				if T::Scheduler::schedule_named(
+					schedule_task_id,
+					DispatchTime::At(when),
+					None,
+					63,
+					frame_system::RawOrigin::Root.into(),
+					generic.call,
+				)
+				.is_err()
+				{
+					frame_support::print("LOGIC ERROR: bake_referendum/schedule_named failed");
+				}
+			}
+			
+			Ok(())
+		}
+
 	}
+
+	pub trait EncodeInto: Encode {
+		fn encode_into<T: AsMut<[u8]> + Default, H: sp_core::Hasher>(&self) -> T {
+			let mut t = T::default();
+			self.using_encoded(|data| {
+				if data.len() <= t.as_mut().len() {
+					t.as_mut()[0..data.len()].copy_from_slice(data);
+				} else {
+					// encoded self is too big to fit into a T.
+					// hash it and use the first bytes of that instead.
+					let hash = H::hash(&data);
+					let hash = hash.as_ref();
+					let l = t.as_mut().len().min(hash.len());
+					t.as_mut()[0..l].copy_from_slice(&hash[0..l]);
+				}
+			});
+			t
+		}
+	}
+	impl<T: Encode> EncodeInto for T {}
 }
 

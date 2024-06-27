@@ -46,8 +46,9 @@ use {
         pallet_prelude::DispatchResult,
         parameter_types,
         traits::{
+            fungible::HoldConsideration,
             ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Contains, InsideBoth, InstanceFilter,
-            AsEnsureOriginWithArg,
+            AsEnsureOriginWithArg, LinearStoragePrice, EqualPrivilegeOnly
         },
         weights::{
             constants::{
@@ -55,7 +56,7 @@ use {
                 WEIGHT_REF_TIME_PER_SECOND,
             },
             ConstantMultiplier, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-            WeightToFeePolynomial,
+            WeightToFeePolynomial
         },
         PalletId,
     },
@@ -882,6 +883,9 @@ parameter_types! {
 impl pallet_foresta_collectives::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_foresta_collectives::weights::SubstrateWeight<Runtime>;
+    type Scheduler = Scheduler;
+	type PalletsOrigin = OriginCaller;
+    type Preimages = Preimage;
     type KYCProvider = KYCPallet;
     type MaxNumCollectives = MaxNumCollectives;
     type CollectiveId = u32;
@@ -969,6 +973,47 @@ impl pallet_multisig::Config for Runtime {
     type WeightInfo = weights::pallet_multisig::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub const PreimageBaseDeposit: Balance = 1 * DOLLARS;
+	// One cent: $10,000 / MB
+	pub const PreimageByteDeposit: Balance = 1 * CENTS;
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+}
+
+impl pallet_preimage::Config for Runtime {
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PreimageHoldReason,
+		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+	>;
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+		RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type MaxScheduledPerBlock = ConstU32<512>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MaxScheduledPerBlock = ConstU32<50>;
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type Preimages = Preimage;
+}
+
 impl_tanssi_pallets_config!(Runtime);
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -995,6 +1040,8 @@ construct_runtime!(
 
         // Other utilities
         Multisig: pallet_multisig = 16,
+        Preimage: pallet_preimage = 17,
+        Scheduler: pallet_scheduler = 18,
 
         // orml pallets
         Tokens: orml_tokens = 41,

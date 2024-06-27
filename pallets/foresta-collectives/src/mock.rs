@@ -3,8 +3,9 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Nothing, OnFinalize, OnInitialize},
+	traits::{AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, EqualPrivilegeOnly, Nothing, OnFinalize, OnInitialize},
 	PalletId,
+	weights::Weight,
 };
 use primitives::{Amount, Balance, CarbonCreditsValidator, CurrencyId};
 use crate::SubstrateWeight;
@@ -14,7 +15,7 @@ use scale_info::TypeInfo;
 use sp_core::{ConstU16, ConstU64, H256};
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
-	BuildStorage, Percent
+	BuildStorage, Percent, Perbill
 };
 use sp_std::convert::{TryFrom, TryInto};
 pub type AccountId = u64;
@@ -38,12 +39,21 @@ frame_support::construct_runtime!(
 		Tokens: orml_tokens,
 		Dex: pallet_dex,
 		ForestaCollectives: pallet_foresta_collectives,
+		Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler,
 	}
 );
 
+parameter_types! {
+	pub BlockWeights: frame_system::limits::BlockWeights =
+		frame_system::limits::BlockWeights::simple_max(
+			Weight::from_parts(frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
+		);
+}
+
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
+	type BlockWeights = BlockWeights;
 	type BlockLength = ();
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
@@ -172,6 +182,31 @@ impl pallet_carbon_credits_pool::Config for Test {
 	type PalletId = CarbonCreditPoolsPalletId;
 	type PoolId = u32;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+}
+
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<u64>;
+	type Consideration = ();
+}
+
+impl pallet_scheduler::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<u64>;
+	type MaxScheduledPerBlock = ConstU32<100>;
+	type WeightInfo = ();
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type Preimages = ();
 }
 
 parameter_type_with_key! {
@@ -331,6 +366,9 @@ impl pallet_foresta_collectives::Config for Test {
 	type MaxNumCollectives = ConstU32<10>;
     type VotingDuration = blocknumbers;
     type ForceOrigin =  frame_system::EnsureRoot<u64>;
+	type PalletsOrigin = OriginCaller;
+	type Preimages = Preimage;
+	type Scheduler = Scheduler;
 }
 
 // Build genesis storage according to the mock runtime.

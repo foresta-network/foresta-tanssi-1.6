@@ -53,8 +53,10 @@ pallet-insecure-randomness-collective-flip = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-membership = { workspace = true }
 pallet-multisig = { workspace = true }
+pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-root-testing = { workspace = true }
+pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -166,8 +168,10 @@ std = [
 	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-kyc/std",
+	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-root-testing/std",
+	"pallet-scheduler/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
