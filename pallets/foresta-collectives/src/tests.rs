@@ -402,95 +402,12 @@ fn it_works_for_init_project_approval_vote() {
 #[test]
 fn it_works_for_create_proposal() {
 	new_test_ext().execute_with(|| {
+		assert_eq!(ForestaCollectives::var_count(),0);
 		let manager = 1;
 		// Root creates collective and adds user 1 as the manager
 		assert_ok!(ForestaCollectives::add_collective(RawOrigin::Root.into(),"Collective1".as_bytes().to_vec().try_into().unwrap(),
 		sp_core::bounded_vec![manager],"Coll1Hash".as_bytes().to_vec().try_into().unwrap()));
-
-		let member = 2;
-		let member2 = 3;
-		let project_id = 0;
-		let group_id = 0;
-		let collective_id = 0;
-		let vote_id = 0;
-
-		// Manager adds member as a member of the collective
-		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
-
-		// Manager adds member2 as a member of the collective
-		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member2,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
-
-		// member creates proposal
-		assert_ok!(ForestaCollectives::create_proposal(RawOrigin::Signed(member).into(),collective_id,"Title".as_bytes().to_vec().try_into().unwrap(),
-		"Proposal1Hash".as_bytes().to_vec().try_into().unwrap(),VoteCategory::WildlifeProtection,VotePriority::Medium));
-
-		let mut vote = Vote::<Test> {
-			yes_votes: 0,
-			no_votes: 0,
-			end: 101,
-			status: VoteStatus::Deciding,
-			vote_type: VoteType::Proposal,
-			category: VoteCategory::WildlifeProtection,
-			priority: VotePriority::Medium,
-			collective_id: Some(collective_id),
-			project_id: None
-		};
-
-		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
-
-		run_to_block(21);
-
-		// member2 votes yes
-
-		assert_ok!(ForestaCollectives::cast_vote(RawOrigin::Signed(member2).into(),vote_id,true));
-
-		vote = Vote::<Test> {
-			yes_votes: 1,
-			no_votes: 0,
-			end: 101,
-			status: VoteStatus::Deciding,
-			vote_type: VoteType::Proposal,
-			category: VoteCategory::WildlifeProtection,
-			priority: VotePriority::Medium,
-			collective_id: Some(collective_id),
-			project_id: None
-		};
-
-		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
-
-		run_to_block(101);
-
-		vote = Vote::<Test> {
-			yes_votes: 1,
-			no_votes: 0,
-			end: 101,
-			status: VoteStatus::Passed,
-			vote_type: VoteType::Proposal,
-			category: VoteCategory::WildlifeProtection,
-			priority: VotePriority::Medium,
-			collective_id: Some(collective_id),
-			project_id: None
-		};
-
-		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
-
-		//member tries to vote after vote has expired
-
-		run_to_block(121);
-
-		assert_noop!(ForestaCollectives::cast_vote(RawOrigin::Signed(member).into(),vote_id,true),
-	Error::<Test>::VoteNotInProgress);
-	});
-}
-
-#[test]
-fn it_works_for_create_proposal2() {
-	new_test_ext().execute_with(|| {
-		let manager = 1;
-		// Root creates collective and adds user 1 as the manager
-		assert_ok!(ForestaCollectives::add_collective(RawOrigin::Root.into(),"Collective1".as_bytes().to_vec().try_into().unwrap(),
-		sp_core::bounded_vec![manager],"Coll1Hash".as_bytes().to_vec().try_into().unwrap()));
-
+		assert_eq!(last_event(),ForestaCollectivesEvent::CollectiveCreated { uid: 0 }.into());
 		let member = 2;
 		let member2 = 3;
 		let project_id = 0;
@@ -505,6 +422,7 @@ fn it_works_for_create_proposal2() {
 		assert_ok!(ForestaCollectives::add_member(RawOrigin::Signed(manager).into(),collective_id,member2,"ProfileHash".as_bytes().to_vec().try_into().unwrap()));
 
 		// Check initial balance
+		assert_eq!(Balances::free_balance(0), 0);
 		assert_eq!(Balances::free_balance(42), 0);
 
 		// member creates proposal
@@ -560,13 +478,18 @@ fn it_works_for_create_proposal2() {
 		};
 
 		assert_eq!(ForestaCollectives::get_project_vote(vote_id),Some(vote));
-
+		assert_eq!(ForestaCollectives::var_count(),102);
 
 		assert!(pallet_scheduler::Agenda::<Test>::get(102)[0].is_some());
 
 		run_to_block(102);
 
 		//assert_eq!(Balances::free_balance(42), 100);
+
+		let x = [0u8; 32];
+		
+
+		//assert_eq!(last_event(),ForestaCollectivesEvent::CallScheduled { schedule_task_id: x }.into());
 
 		//member tries to vote after vote has expired
 

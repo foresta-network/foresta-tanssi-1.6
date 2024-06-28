@@ -68,15 +68,6 @@ pub mod pallet {
 	#[scale_info(skip_type_params(T))]
 	pub struct Proposal<T:Config> {
         pub creator: T::AccountId,
-		pub title: BoundedVec<u8, T::MaxStringLength>,
-		pub hash: BoundedVec<u8, T::MaxStringLength>,
-		pub vote_id: T::VoteId,
-	}
-
-	#[derive(Clone, Encode, Decode, PartialEq, MaxEncodedLen, Debug, TypeInfo, Eq)]
-	#[scale_info(skip_type_params(T))]
-	pub struct Generic<T:Config> {
-        pub creator: T::AccountId,
 		pub call: BoundedCallOf<T>,
 		pub collective_id: <T as pallet::Config>::CollectiveId,
 		pub proposal_id: T::ProposalId,
@@ -132,6 +123,7 @@ pub mod pallet {
 		RemoveValidator,
 		SetSellerPayoutAuthority,
 		Proposal,
+		Other,
 	}
 
 	#[derive(Clone, Encode, Decode, PartialEq, MaxEncodedLen, Debug, TypeInfo, Eq, Copy)]
@@ -283,25 +275,14 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn get_proposal)]
-	pub(super) type Proposals<T:Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		<T as pallet::Config>::CollectiveId,
-		Blake2_128Concat,
-		T::ProposalId,
-		Proposal<T>,
-		OptionQuery,
-	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_generic)]
-	pub(super) type Generics<T:Config> = StorageMap<
+	#[pallet::getter(fn get_proposal)]
+	pub(super) type Proposals<T:Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::VoteId,
-		Generic<T>,
+		Proposal<T>,
 		OptionQuery,
 	>;
 
@@ -427,6 +408,10 @@ pub mod pallet {
 	pub type VotesCount<T: Config> = StorageValue<_, T::VoteId, ValueQuery>;
 
 
+	#[pallet::storage]
+	#[pallet::getter(fn var_count)]
+	pub type VarCount<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/main-docs/build/events-errors/
 	#[pallet::event]
@@ -452,6 +437,7 @@ pub mod pallet {
 			vote_cast: bool,
 		},
 		ProfileEdited { account: T::AccountId },
+		CallScheduled {schedule_task_id: [u8;32]},
 	}
 
 	// Errors inform users that something went wrong.
@@ -542,10 +528,10 @@ pub mod pallet {
 						VoteType::RemoveValidator => {
 							let _ = Self::do_remove_validator(*v_id,is_approved);	
 						},
-						VoteType::SetSellerPayoutAuthority=> {
+						VoteType::SetSellerPayoutAuthority => {
 							let _ = Self::do_add_validator(*v_id,is_approved);	
 						},
-						VoteType::Proposal=> {
+						VoteType::Proposal => {
 							let _ = Self::do_schedule_dispatch(*v_id,is_approved);	
 						},
 						_ => ()
@@ -877,61 +863,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(7)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
-		pub fn create_proposal(origin: OriginFor<T>, collective_id: <T as pallet::Config>::CollectiveId, title: BoundedVec<u8, T::MaxStringLength>,
-			proposal_hash: BoundedVec<u8, T::MaxStringLength>, category: VoteCategory, priority: VotePriority,	) -> DispatchResult {
-		
-			let who = ensure_signed(origin)?;
-			ensure!(Self::get_collective(collective_id).is_some(),Error::<T>::CollectiveDoesNotExist);
-			ensure!(Members::<T>::contains_key(collective_id.clone(),&who.clone()), Error::<T>::MemberDoesNotExist);
-
-			let uid = Self::votes_count();
-		
-			let current_block = <frame_system::Pallet<T>>::block_number();
-
-			let final_block = current_block + T::VotingDuration::get();
-
-			ActiveVoting::<T>::try_mutate(final_block, |projects| {
-				projects.try_push(uid).map_err(|_| Error::<T>::MaxVotingExceeded)?;
-				Ok::<(),DispatchError>(())
-			})?;
-
-			let vote_info = Vote::<T> {
-				yes_votes: 0,
-				no_votes: 0,
-				end: final_block,
-				status: VoteStatus::Deciding,
-				category,
-				priority,
-				vote_type: VoteType::Proposal,
-				collective_id: Some(collective_id),
-				project_id: None,
-			};
-
-			let proposal_info = Proposal::<T> {
-				creator: who.clone(),
-				title,
-				hash: proposal_hash,
-				vote_id: uid,
-			};
-
-			let proposal_count = Self::get_proposal_count(collective_id);
-
-
-			ProjectVote::<T>::insert(uid,&vote_info);
-			Proposals::<T>::insert(collective_id,proposal_count,&proposal_info);
-
-			let uid2 = uid.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
-			VotesCount::<T>::put(uid2);
-
-			let proposal_count2 = proposal_count.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
-
-			ProposalsCount::<T>::insert(collective_id,proposal_count2);
-
-
-			Ok(())
-		}
 
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
@@ -1013,7 +944,7 @@ pub mod pallet {
 
 			let proposal_count = Self::get_proposal_count(collective_id);
 
-			let proposal_info = Generic::<T> {
+			let proposal_info = Proposal::<T> {
 				creator: who.clone(),
 				call: proposal,
 				collective_id: collective_id,
@@ -1022,7 +953,7 @@ pub mod pallet {
 
 
 			ProjectVote::<T>::insert(uid,&vote_info);
-			Generics::<T>::insert(uid,&proposal_info);
+			Proposals::<T>::insert(uid,&proposal_info);
 
 			let uid2 = uid.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
 			VotesCount::<T>::put(uid2);
@@ -1168,10 +1099,9 @@ pub mod pallet {
 		// Schedule call dispatch
 
 		pub fn do_schedule_dispatch(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
-
 			if is_approved == true {
-				let generic = Self::get_generic(vote_id).ok_or(Error::<T>::ProposalNotFound)?;
 				let now = frame_system::Pallet::<T>::block_number();
+				let generic = Self::get_proposal(vote_id).ok_or(Error::<T>::ProposalNotFound)?;
 				let when = now.saturating_add(One::one());
 				let schedule_task_id = (FORESTA_ID, vote_id).encode_into::<_, T::Hashing>();
 				if T::Scheduler::schedule_named(
@@ -1184,9 +1114,16 @@ pub mod pallet {
 				)
 				.is_err()
 				{
-					frame_support::print("LOGIC ERROR: bake_referendum/schedule_named failed");
+					frame_support::print("LOGIC ERROR: schedule_named failed");
 				}
+				VarCount::<T>::put(when);
+				
+				Self::deposit_event(Event::CallScheduled {
+					schedule_task_id: [0u8; 32]
+				});
+				
 			}
+			
 			
 			Ok(())
 		}
