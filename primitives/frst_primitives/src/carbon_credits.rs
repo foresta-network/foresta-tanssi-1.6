@@ -197,6 +197,16 @@ pub trait CarbonCreditsValidator {
 	) -> DispatchResult;
 }
 
+pub trait DexFunctions {
+	type Address: Clone + PartialEq + Debug;
+
+	fn add_validator_account(account: Self::Address) -> DispatchResult;
+
+	fn remove_validator_account(account: Self::Address) -> DispatchResult;
+
+	fn set_seller_payout_authority(authority: Self::Address) -> DispatchResult;
+}
+
 /// Represents different types of projects related to environmental impact assessment.
 #[allow(non_camel_case_types)]
 #[derive(Clone, Encode, Decode, Eq, PartialEq, TypeInfo, Default, Debug, MaxEncodedLen)]

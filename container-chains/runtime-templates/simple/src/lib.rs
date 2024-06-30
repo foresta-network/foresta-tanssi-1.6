@@ -887,6 +887,7 @@ impl pallet_foresta_collectives::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
     type Preimages = Preimage;
     type KYCProvider = KYCPallet;
+    type DexProvider = Dex;
     type MaxNumCollectives = MaxNumCollectives;
     type CollectiveId = u32;
     type ProposalId = u32;

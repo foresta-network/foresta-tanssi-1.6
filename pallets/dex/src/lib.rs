@@ -40,6 +40,7 @@ mod tests;
 mod benchmarking;
 
 mod weights;
+use frame_support::pallet_prelude::DispatchResult;
 pub use weights::WeightInfo;
 mod types;
 
@@ -845,19 +846,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
 			// add the account_id to the list of authorized accounts
-			ValidatorAccounts::<T>::try_mutate(|account_list| -> DispatchResult {
-				ensure!(
-					!account_list.contains(&account_id),
-					Error::<T>::ValidatorAccountAlreadyExists
-				);
-
-				account_list
-					.try_push(account_id.clone())
-					.map_err(|_| Error::<T>::TooManyValidatorAccounts)?;
-				Ok(())
-			})?;
-
-			Self::deposit_event(Event::ValidatorAccountAdded { account_id });
+			Self::do_add_validator_account(account_id)?;
 			Ok(())
 		}
 
@@ -870,14 +859,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
 			// remove the account_id from the list of authorized accounts if already exists
-			ValidatorAccounts::<T>::try_mutate(|account_list| -> DispatchResult {
-				if let Some(index) = account_list.iter().position(|a| a == &account_id) {
-					account_list.swap_remove(index);
-					Self::deposit_event(Event::ValidatorAccountRemoved { account_id });
-				}
-
-				Ok(())
-			})
+			Self::do_remove_validator_account(account_id)?;
+			Ok(())
 		}
 
 		/// Set the minimum validators required to validator a payment
@@ -922,8 +905,7 @@ pub mod pallet {
 			authority: T::AccountId,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
-			SellerPayoutAuthority::<T>::set(Some(authority.clone()));
-			Self::deposit_event(Event::SellerPayoutAuthoritySet { authority });
+			Self::do_set_seller_payout_authority(authority)?;
 			Ok(())
 		}
 
@@ -1075,5 +1057,59 @@ pub mod pallet {
 				Ok(())
 			}
 		}
+
+		/// add validator account
+
+		pub fn do_add_validator_account(account_id: T::AccountId) -> DispatchResult {
+			ValidatorAccounts::<T>::try_mutate(|account_list| -> DispatchResult {
+				ensure!(
+					!account_list.contains(&account_id),
+					Error::<T>::ValidatorAccountAlreadyExists
+				);
+
+				account_list
+					.try_push(account_id.clone())
+					.map_err(|_| Error::<T>::TooManyValidatorAccounts)?;
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::ValidatorAccountAdded { account_id });
+			Ok(())
+		}
+
+		pub fn do_remove_validator_account(account_id: T:: AccountId) -> DispatchResult {
+			ValidatorAccounts::<T>::try_mutate(|account_list| -> DispatchResult {
+				if let Some(index) = account_list.iter().position(|a| a == &account_id) {
+					account_list.swap_remove(index);
+					Self::deposit_event(Event::ValidatorAccountRemoved { account_id });
+				}
+
+				Ok(())
+			})
+		}
+
+		pub fn do_set_seller_payout_authority(authority: T::AccountId) -> DispatchResult {
+			SellerPayoutAuthority::<T>::set(Some(authority.clone()));
+			Self::deposit_event(Event::SellerPayoutAuthoritySet { authority });
+			Ok(())
+		}
 	}
+}
+
+impl<T: Config> primitives::DexFunctions for Pallet<T> {
+    
+    type Address = T::AccountId;
+
+	fn add_validator_account(account: Self::Address) -> DispatchResult {
+		Self::do_add_validator_account(account)
+	}
+
+	fn remove_validator_account(account: Self::Address) -> DispatchResult {
+		Self::do_remove_validator_account(account)
+	}
+
+	fn set_seller_payout_authority(authority: Self::Address) -> DispatchResult {
+		Self::do_set_seller_payout_authority(authority)
+	}
+    
 }

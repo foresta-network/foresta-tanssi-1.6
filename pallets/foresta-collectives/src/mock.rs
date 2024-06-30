@@ -354,6 +354,7 @@ impl pallet_foresta_collectives::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type KYCProvider = KYCMembership;
+	type DexProvider = Dex;
     type CollectiveId = u32;
 	type ProposalId = u32;
 	type VoteId = u32;
