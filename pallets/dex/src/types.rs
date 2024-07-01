@@ -19,6 +19,7 @@ pub type ProjectIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidat
 
 pub type GroupIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidator>::GroupId;
 
+pub type CollectiveIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidator>::CollectiveId;
 /// ValidatorAccounts type of pallet
 pub type ValidatorAccountsListOf<T> =
 	BoundedVec<<T as frame_system::Config>::AccountId, <T as pallet::Config>::MaxValidators>;
@@ -77,6 +78,7 @@ pub struct BuyOrderInfo<
 	pub asset_id: AssetId,
 	pub total_fee: TokenBalance,
 	pub total_amount: TokenBalance,
+	pub collective_share: TokenBalance,
 	pub expiry_time: Time,
 	pub payment_info: Option<PaymentInfo<AccountId, TxProofLen, MaxValidators>>,
 }

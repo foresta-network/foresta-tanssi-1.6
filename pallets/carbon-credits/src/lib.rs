@@ -648,26 +648,33 @@ pub mod pallet {
 
 /// Struct to verify if a given asset_id is representing a carbon credit project
 impl<T: Config> primitives::CarbonCreditsValidator for Pallet<T> {
-    type ProjectId = T::ProjectId;
-    type Address = T::AccountId;
-    type GroupId = T::GroupId;
-    type AssetId = T::AssetId;
-    type Amount = T::Balance;
+	type ProjectId = T::ProjectId;
+	type Address = T::AccountId;
+	type GroupId = T::GroupId;
+	type AssetId = T::AssetId;
+	type CollectiveId = T::CollectiveId;
+	type Amount = T::Balance;
 
-    fn get_project_details(asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
-        AssetIdLookup::<T>::get(asset_id)
-    }
+	fn project_details(asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
+		AssetIdLookup::<T>::get(asset_id)
+	}
 
-    fn retire_credits(
-        sender: Self::Address,
-        project_id: Self::ProjectId,
-        group_id: Self::GroupId,
-        amount: Self::Amount,
-        reason: Option<sp_std::vec::Vec<u8>>,
+	fn retire_credits(
+		sender: Self::Address,
+		project_id: Self::ProjectId,
+		group_id: Self::GroupId,
+		amount: Self::Amount,
+		reason: Option<sp_std::vec::Vec<u8>>,
         ipfs_hash: Option<sp_std::vec::Vec<u8>>,
         ipns_link: Option<sp_std::vec::Vec<u8>>,
         image_link: Option<sp_std::vec::Vec<u8>>
-    ) -> DispatchResult {
-        Self::retire_carbon_credits(sender, project_id, group_id, amount, reason, ipfs_hash, ipns_link, image_link)
-    }
+	) -> DispatchResult {
+		Self::retire_carbon_credits(sender, project_id, group_id, amount, reason, ipfs_hash, ipns_link, image_link)
+	}
+
+	fn get_collective_id(project_id: &Self::ProjectId) -> Self::CollectiveId {
+		let project_details = Self::get_project_details(*project_id).unwrap();
+		let collective_id = project_details.collective_id.unwrap();
+		collective_id
+	}
 }

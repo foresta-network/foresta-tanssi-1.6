@@ -801,6 +801,7 @@ parameter_types! {
     pub const MinPricePerUnit : u32 = 1;
     pub const MaxPaymentFee : Percent = Percent::from_percent(10);
     pub const MaxPurchaseFee : Balance = 10 * UNIT;
+    pub const MaxCollectiveFee : Percent = Percent::from_percent(5);
     #[derive(Clone, scale_info::TypeInfo)]
     pub const MaxValidators : u32 = 10;
     #[derive(Clone, scale_info::TypeInfo, Debug, PartialEq)]
@@ -815,30 +816,33 @@ parameter_types! {
     pub const MaxPayoutsToStore : u32 = 1000;
     #[derive(Clone, scale_info::TypeInfo, Debug, PartialEq)]
     pub const MaxOpenOrdersPerUser : u32 = 10;
+    pub const MaxMembersC: u32 = 1000;
 }
 
 impl pallet_dex::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type Asset = Assets;
-    type Currency = Tokens;
-    type CurrencyBalance = u128;
-    type AssetBalance = u128;
-    type PalletId = DexPalletId;
-    type AssetValidator = CarbonCredits;
-    type MinPricePerUnit = MinPricePerUnit;
-    type MaxValidators = MaxValidators;
-    type MaxTxHashLen = MaxTxHashLen;
-    type KYCProvider = KYCPallet;
-    type BuyOrderExpiryTime = BuyOrderExpiryTime;
-    type MinUnitsToCreateSellOrder = MinUnitsToCreateSellOrder;
-    type ForceOrigin = EnsureRoot<AccountId>;
-    type MaxPaymentFee = MaxPaymentFee;
-    type MaxPurchaseFee = MaxPurchaseFee;
-    type MaxAddressLen = MaxAddressLen;
-    type MaxOrderIds = MaxOrderIds;
-    type MaxPayoutsToStore = MaxPayoutsToStore;
-    type MaxOpenOrdersPerUser = MaxOpenOrdersPerUser;
-    type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Asset = Assets;
+	type Currency = Tokens;
+	type CurrencyBalance = u128;
+	type AssetBalance = u128;
+	type PalletId = DexPalletId;
+	type AssetValidator = CarbonCredits;
+	type MinPricePerUnit = MinPricePerUnit;
+	type MaxValidators = MaxValidators;
+	type MaxTxHashLen = MaxTxHashLen;
+	type KYCProvider = KYCPallet;
+	type BuyOrderExpiryTime = BuyOrderExpiryTime;
+	type MinUnitsToCreateSellOrder = MinUnitsToCreateSellOrder;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type MaxPaymentFee = MaxPaymentFee;
+	type MaxPurchaseFee = MaxPurchaseFee;
+    type MaxCollectiveFee = MaxCollectiveFee;
+	type MaxAddressLen = MaxAddressLen;
+	type MaxOrderIds = MaxOrderIds;
+	type MaxPayoutsToStore = MaxPayoutsToStore;
+	type MaxOpenOrdersPerUser = MaxOpenOrdersPerUser;
+    type MaxMembersPerCollective = MaxMembersC;
+	type WeightInfo = ();
 }
 
 // orml pallets

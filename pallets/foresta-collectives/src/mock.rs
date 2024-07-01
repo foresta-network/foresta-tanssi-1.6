@@ -236,8 +236,14 @@ impl CarbonCreditsValidator for DummyValidator {
 	type Address = AccountId;
 	type AssetId = u32;
 	type GroupId = u32;
-	fn get_project_details(_asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
+	type CollectiveId = u32;
+
+	fn project_details(_asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
 		Some((0, 0))
+	}
+
+	fn get_collective_id(_project_id: &Self::ProjectId) -> Self::CollectiveId {
+		0
 	}
 
 	fn retire_credits(
@@ -273,6 +279,7 @@ parameter_types! {
 	pub const MinPricePerUnit : u32 = 1;
 	pub const MaxPaymentFee : Percent = Percent::from_percent(50);
 	pub const MaxPurchaseFee : u128 = 100u128;
+	pub const MaxCollectiveFee : Percent = Percent::from_percent(5);
 	#[derive(Clone, scale_info::TypeInfo)]
 	pub const MaxValidators : u32 = 10;
 	#[derive(Clone, scale_info::TypeInfo, Debug, PartialEq)]
@@ -287,6 +294,7 @@ parameter_types! {
 	pub const MaxPayoutsToStore : u32 = 1000;
 	#[derive(Clone, scale_info::TypeInfo, Debug, PartialEq)]
 	pub const MaxOpenOrdersPerUser : u32 = 2;
+	pub const MaxMembersC : u32 = 100;
 }
 
 impl pallet_dex::Config for Test {
@@ -310,6 +318,8 @@ impl pallet_dex::Config for Test {
 	type MaxPaymentFee = MaxPaymentFee;
 	type MaxPurchaseFee = MaxPurchaseFee;
 	type MaxPayoutsToStore = MaxPayoutsToStore;
+	type MaxCollectiveFee = MaxCollectiveFee;
+	type MaxMembersPerCollective = MaxMembersC;
 	type WeightInfo = ();
 }
 
