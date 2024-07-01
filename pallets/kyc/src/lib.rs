@@ -17,7 +17,7 @@ use frame_support::{
 use sp_runtime::traits::{AccountIdConversion, StaticLookup};
 use sp_std::prelude::*;
 pub mod weights;
-pub use foresta_primitives::UserLevel;
+pub use primitives::UserLevel;
 
 #[cfg(test)]
 mod mock;
