@@ -29,6 +29,7 @@ use crate::{
     BatchRetireDataList,
     BatchRetireDataOf,
     Config,
+    CollectiveId,
     Error,
     Event,
     NextAssetId,
@@ -143,7 +144,7 @@ impl<T: Config> Pallet<T> {
     pub fn create_project(
         admin: T::AccountId,
         params: ProjectCreateParams<T>,
-        collective_id: Option<T::CollectiveId>
+        collective_id: Option<CollectiveId>
     ) -> Result<T::ProjectId, DispatchError> {
         let now = frame_system::Pallet::<T>::block_number();
 

@@ -126,7 +126,7 @@ fn create_and_approve_project(originator_account: u64, authorised_account: u64) 
 	let creation_params = get_default_creation_params::<Test>();
 	assert_ok!(CarbonCredits::create(
 		RawOrigin::Signed(originator_account).into(),
-		creation_params,Some(1u32)
+		creation_params,1u32
 	));
 
 	// approve project so minting can happen
@@ -162,7 +162,7 @@ fn create_and_approve_project_batch(originator_account: u64, authorised_account:
 
 	assert_ok!(CarbonCredits::create(
 		RawOrigin::Signed(originator_account).into(),
-		creation_params,Some(1u32)
+		creation_params,1u32
 	));
 
 	// approve project so minting can happen
@@ -289,7 +289,7 @@ fn create_works_for_single_batch() {
 
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params.clone(),Some(1u32)
+			creation_params.clone(),1u32
 		));
 
 		// ensure the storage is populated correctly
@@ -323,7 +323,7 @@ fn create_works_for_multiple_batch() {
 
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params.clone(),Some(1u32)
+			creation_params.clone(),1u32
 		));
 
 		// ensure the storage is populated correctly
@@ -392,7 +392,7 @@ fn create_fails_for_multiple_batch_with_single_batch_supply_zero() {
 		creation_params.batch_groups = batch_groups;
 
 		assert_noop!(
-			CarbonCredits::create(RawOrigin::Signed(originator_account).into(), creation_params,Some(1u32)),
+			CarbonCredits::create(RawOrigin::Signed(originator_account).into(), creation_params,1u32),
 			Error::<Test>::CannotCreateProjectWithoutCredits
 		);
 	});
@@ -408,7 +408,7 @@ fn create_fails_for_empty_batch_group() {
 		creation_params.batch_groups = Default::default();
 
 		assert_noop!(
-			CarbonCredits::create(RawOrigin::Signed(originator_account).into(), creation_params,Some(1u32)),
+			CarbonCredits::create(RawOrigin::Signed(originator_account).into(), creation_params,1u32),
 			Error::<Test>::CannotCreateProjectWithoutCredits
 		);
 	});
@@ -435,7 +435,7 @@ fn create_fails_for_empty_batches() {
 		creation_params.batch_groups = batch_groups;
 
 		assert_noop!(
-			CarbonCredits::create(RawOrigin::Signed(originator_account).into(), creation_params,Some(1u32)),
+			CarbonCredits::create(RawOrigin::Signed(originator_account).into(), creation_params,1u32),
 			Error::<Test>::CannotCreateProjectWithoutCredits
 		);
 	});
@@ -454,7 +454,7 @@ fn resubmit_works() {
 
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params.clone(),Some(1u32)
+			creation_params.clone(),1u32
 		));
 
 		// only originator can resubmit
@@ -541,7 +541,7 @@ fn approve_project_works() {
 		let creation_params = get_default_creation_params::<Test>();
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params,Some(1u32)
+			creation_params,1u32
 		));
 
 		// ensure the storage is populated correctly
@@ -589,7 +589,7 @@ fn cleanup_after_project_reject_works() {
 		let creation_params = get_default_creation_params::<Test>();
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params,Some(1u32)
+			creation_params,1u32
 		));
 
 		// approve the project to create asset
@@ -650,7 +650,7 @@ fn mint_non_approved_project_should_fail() {
 		let creation_params = get_default_creation_params::<Test>();
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params,Some(1u32)
+			creation_params,1u32
 		));
 
 		add_authorised_account(10);
@@ -1423,7 +1423,7 @@ fn force_approve_and_mint_credits_works() {
 
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params,Some(1u32)
+			creation_params,1u32
 		));
 
 		// mint should work with all params correct
@@ -1471,7 +1471,7 @@ fn update_works() {
 
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params.clone(),Some(1u32)
+			creation_params.clone(),1u32
 		));
 
 		// unapproved project cannot be updated
@@ -1557,7 +1557,7 @@ fn add_batch_group_works() {
 
 		assert_ok!(CarbonCredits::create(
 			RawOrigin::Signed(originator_account).into(),
-			creation_params.clone(),Some(1u32)
+			creation_params.clone(),1u32
 		));
 
 		// ensure the storage is populated correctly

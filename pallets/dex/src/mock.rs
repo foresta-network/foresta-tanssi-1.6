@@ -137,13 +137,12 @@ impl CarbonCreditsValidator for DummyValidator {
 	type Address = AccountId;
 	type AssetId = u32;
 	type GroupId = u32;
-	type CollectiveId = u32;
 
 	fn project_details(_asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
 		Some((0, 0))
 	}
 
-	fn get_collective_id(_project_id: &Self::ProjectId) -> Self::CollectiveId {
+	fn get_collective_id(_project_id: &Self::ProjectId) -> u32 {
 		0
 	}
 

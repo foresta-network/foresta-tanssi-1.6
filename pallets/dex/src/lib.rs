@@ -221,7 +221,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn collective_receivables)]
 	pub type CollectiveReceivables<T: Config> =
-		StorageMap<_, Blake2_128Concat, CollectiveIdOf<T>, CurrencyBalanceOf<T>>;
+		StorageMap<_, Blake2_128Concat, CollectiveId, CurrencyBalanceOf<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn member_receivables)]
@@ -804,7 +804,7 @@ pub mod pallet {
 								.ok_or(Error::<T>::AssetNotPermitted)?;
 
 
-								let collective_id: CollectiveIdOf<T> = T::AssetValidator::get_collective_id(&project_id);
+							let collective_id: CollectiveId = T::AssetValidator::get_collective_id(&project_id);
 
 								//let collective_id: u32 =
 								//coll_id.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
@@ -1115,7 +1115,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::force_set_purchase_fee())]
 		pub fn distribute_collective_funds(
 			origin: OriginFor<T>,
-			collective_id: CollectiveIdOf<T>,
+			collective_id: CollectiveId,
 			members: BoundedVec<T::AccountId, T::MaxMembersPerCollective>,
 			amount_per_member: CurrencyBalanceOf<T>
 		) -> DispatchResult {

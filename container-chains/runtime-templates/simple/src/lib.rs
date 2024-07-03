@@ -751,7 +751,6 @@ impl pallet_carbon_credits::Config for Runtime {
     type ProjectId = u32;
     type GroupId = u32;
     type Balance = u128;
-    type CollectiveId = u32;
     type RuntimeEvent = RuntimeEvent;
     type ForceOrigin = EnsureRoot<AccountId>;
     type ItemId = u32;
@@ -887,6 +886,8 @@ parameter_types! {
 impl pallet_foresta_collectives::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_foresta_collectives::weights::SubstrateWeight<Runtime>;
+    type Currency = Tokens;
+	type CurrencyBalance = u128;
     type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
     type Preimages = Preimage;

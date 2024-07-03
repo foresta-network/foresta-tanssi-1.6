@@ -26,10 +26,16 @@ pub mod pallet {
 	use scale_info::TypeInfo;
 	use codec::{FullCodec, MaxEncodedLen, EncodeLike};
 	use primitives::DexFunctions;
+	use orml_traits::MultiCurrency;
+
+	type CollectiveId = u32;
+
+	pub type CurrencyBalanceOf<T> =
+	<<T as Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	use sp_runtime::{
 		traits::{Bounded as ArithBounded, One, MaybeSerializeDeserialize, CheckedAdd,
-			 AccountIdConversion, Saturating}
+			 AccountIdConversion, AtLeast32BitUnsigned, Saturating}
 		,ArithmeticError, };
 	use sp_std::{fmt::Debug,cmp::{Eq, PartialEq}};
 	use frame_support::traits::{
@@ -61,7 +67,7 @@ pub mod pallet {
 		pub vote_type: VoteType,
 		pub category: VoteCategory,
 		pub priority: VotePriority,
-		pub collective_id: Option<<T as pallet_carbon_credits::Config>::CollectiveId>,
+		pub collective_id: Option<CollectiveId>,
 		pub project_id: Option<<T as pallet_carbon_credits::Config>::ProjectId>,
 	}
 
@@ -70,7 +76,7 @@ pub mod pallet {
 	pub struct Proposal<T:Config> {
         pub creator: T::AccountId,
 		pub call: BoundedCallOf<T>,
-		pub collective_id: <T as pallet_carbon_credits::Config>::CollectiveId,
+		pub collective_id: CollectiveId,
 		pub proposal_id: T::ProposalId,
 	}
 
@@ -157,6 +163,15 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type KYCProvider: Contains<Self::AccountId>;
 		type DexProvider: DexFunctions<Address = Self::AccountId>;
+		type CurrencyBalance: Member
+			+ Parameter
+			+ AtLeast32BitUnsigned
+			+ Default
+			+ Copy
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ TypeInfo
+			+ From<u128>;
 		type VoteId: Parameter
 			+ FullCodec
 			+ Default
@@ -193,6 +208,7 @@ pub mod pallet {
 		>;
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+		type Currency: MultiCurrency<Self::AccountId, Balance = <Self as pallet::Config>::CurrencyBalance>;
 		/// The ForestaCollectives pallet id
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -226,7 +242,7 @@ pub mod pallet {
 	pub(super) type CollectivesMap<T:Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		<T as pallet_carbon_credits::Config>::CollectiveId,
+		CollectiveId,
 		Collective<T>,
 		OptionQuery,
 	>;
@@ -247,7 +263,7 @@ pub mod pallet {
 	pub(super) type Members<T:Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		<T as pallet_carbon_credits::Config>::CollectiveId,
+		CollectiveId,
 		Blake2_128Concat,
 		T::AccountId,
 		bool,
@@ -270,7 +286,7 @@ pub mod pallet {
 	pub(super) type MembersCount<T:Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		<T as pallet_carbon_credits::Config>::CollectiveId,
+		CollectiveId,
 		u32,
 		ValueQuery,
 	>;
@@ -280,7 +296,7 @@ pub mod pallet {
 	pub(super) type ProposalsCount<T:Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		<T as pallet_carbon_credits::Config>::CollectiveId,
+		CollectiveId,
 		T::ProposalId,
 		ValueQuery,
 	>;
@@ -290,7 +306,7 @@ pub mod pallet {
 	pub(super) type Managers<T:Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		<T as pallet_carbon_credits::Config>::CollectiveId,
+		CollectiveId,
 		BoundedVec<T::AccountId, T::MaxNumManagers>,
 		ValueQuery,
 	>;
@@ -301,7 +317,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<<T as pallet_carbon_credits::Config>::CollectiveId, T::MaxNumCollectives>,
+		BoundedVec<CollectiveId, T::MaxNumCollectives>,
 		ValueQuery,
 	>;
 
@@ -310,7 +326,7 @@ pub mod pallet {
 	pub(super) type ApprovedProjects<T:Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		<T as pallet_carbon_credits::Config>::CollectiveId,
+		CollectiveId,
 		BoundedVec<<T as pallet_carbon_credits::Config>::ProjectId, T::MaxProjectsPerCollective>,
 		ValueQuery,
 	>;
@@ -380,7 +396,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn collectives_count)]
-	pub(super) type CollectivesCount<T: Config> = StorageValue<_, <T as pallet_carbon_credits::Config>::CollectiveId,ValueQuery>;
+	pub(super) type CollectivesCount<T: Config> = StorageValue<_, CollectiveId,ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn votes_count)]
@@ -398,11 +414,11 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
-		CollectiveCreated { uid : <T as pallet_carbon_credits::Config>::CollectiveId },
-		MemberAdded {collective_id: <T as pallet_carbon_credits::Config>::CollectiveId, member: T::AccountId, uid: u32},
-		ProjectApprovalInit { collective_id: <T as pallet_carbon_credits::Config>::CollectiveId, project_id: <T as pallet_carbon_credits::Config>::ProjectId},
-		ProjectApprovalVoteCast { collective_id: <T as pallet_carbon_credits::Config>::CollectiveId, project_id: <T as pallet_carbon_credits::Config>::ProjectId},
-		ProjectApprovalRemovalInit { collective_id: <T as pallet_carbon_credits::Config>::CollectiveId, project_id: <T as pallet_carbon_credits::Config>::ProjectId},
+		CollectiveCreated { uid : CollectiveId },
+		MemberAdded {collective_id: CollectiveId, member: T::AccountId, uid: u32},
+		ProjectApprovalInit { collective_id: CollectiveId, project_id: <T as pallet_carbon_credits::Config>::ProjectId},
+		ProjectApprovalVoteCast { collective_id: CollectiveId, project_id: <T as pallet_carbon_credits::Config>::ProjectId},
+		ProjectApprovalRemovalInit { collective_id: CollectiveId, project_id: <T as pallet_carbon_credits::Config>::ProjectId},
 		VoteInitializedWithCategory {
 			vote_id: T::VoteId,
 			category: VoteCategory,
@@ -468,7 +484,8 @@ pub mod pallet {
 		TooManyCollectives,
 		// Proposal Not Found
 		ProposalNotFound,
-
+		/// NotAllowedToDistributeFunds
+		NotAllowedToDistributeFunds,
 	}
 
 	#[pallet::hooks]
@@ -578,7 +595,7 @@ pub mod pallet {
 			};
 
 			let uid = Self::collectives_count();
-			let uid2 = uid.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
+			let uid2 = uid.checked_add(1u32.into()).ok_or(ArithmeticError::Overflow)?;
 			CollectivesMap::<T>::insert(uid.clone(),&collective);
 			Managers::<T>::insert(uid.clone(),&managers);
 			
@@ -606,7 +623,7 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
-		pub fn join_collective(origin: OriginFor<T>, collective_id: <T as pallet_carbon_credits::Config>::CollectiveId, hash: BoundedVec<u8, T::MaxProfileLength>) -> DispatchResult {
+		pub fn join_collective(origin: OriginFor<T>, collective_id: CollectiveId, hash: BoundedVec<u8, T::MaxProfileLength>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			Self::check_kyc_approval(&member)?;
 			ensure!(!Self::check_member(collective_id,member.clone()),Error::<T>::MemberAlreadyExists);
@@ -625,7 +642,7 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_member())]
-		pub fn add_member(origin: OriginFor<T>, collective_id: <T as pallet_carbon_credits::Config>::CollectiveId, member: T::AccountId,
+		pub fn add_member(origin: OriginFor<T>, collective_id: CollectiveId, member: T::AccountId,
 		hash: BoundedVec<u8, T::MaxProfileLength>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Self::get_collective(collective_id).is_some(),Error::<T>::CollectiveDoesNotExist);
@@ -651,7 +668,7 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
-		pub fn init_project_approval_removal(origin: OriginFor<T>, collective_id: <T as pallet_carbon_credits::Config>::CollectiveId, 
+		pub fn init_project_approval_removal(origin: OriginFor<T>, collective_id: CollectiveId, 
 		project_id: <T as pallet_carbon_credits::Config>::ProjectId, vote_type: VoteType, category: VoteCategory, priority: VotePriority,) -> DispatchResult {
 			
 			let who = ensure_signed(origin)?;
@@ -847,7 +864,7 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
 		pub fn submit_project_proposal(
 			origin: OriginFor<T>,
-			collective_id: <T as pallet_carbon_credits::Config>::CollectiveId,
+			collective_id: CollectiveId,
 			params: pallet_carbon_credits::ProjectCreateParams<T>,
 		) -> DispatchResult {
 			let manager = ensure_signed(origin)?;
@@ -859,7 +876,7 @@ pub mod pallet {
 					let _project_id = pallet_carbon_credits::Pallet::<T>::create_project(
 						manager,
 						params,
-						Some(<T as pallet_carbon_credits::Config>::CollectiveId::from(collective_id.into())),
+						Some(collective_id),
 					)?;					
 					Ok(())
 				},
@@ -889,7 +906,7 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
 		pub fn propose(
 			origin: OriginFor<T>,
-			collective_id: <T as pallet_carbon_credits::Config>::CollectiveId,
+			collective_id: CollectiveId,
 			proposal: BoundedCallOf<T>,
 			category: VoteCategory, 
 			priority: VotePriority
@@ -954,13 +971,13 @@ pub mod pallet {
 			}
 		}
 
-		pub fn do_approve_project(coll_id: Option<<T as pallet_carbon_credits::Config>::CollectiveId>,
+		pub fn do_approve_project(coll_id: Option<CollectiveId>,
 		proj_id: Option<<T as pallet_carbon_credits::Config>::ProjectId>, is_approved: bool) -> DispatchResult {
 				
 			if is_approved == true {
 				let collective_id = match coll_id {
 					Some(x) => x,
-					None => 0.into(),
+					None => 0,
 				};
 	
 				let project_id = match proj_id {
@@ -985,12 +1002,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn do_remove_project(coll_id: Option<<T as pallet_carbon_credits::Config>::CollectiveId>,
+		pub fn do_remove_project(coll_id: Option<CollectiveId>,
 		proj_id: Option<<T as pallet_carbon_credits::Config>::ProjectId>, is_approved: bool) -> DispatchResult {
 				if is_approved == true {
 					let collective_id = match coll_id {
 						Some(x) => x,
-						None => 0.into(),
+						None => 0,
 					};
 		
 					let project_id = match proj_id {

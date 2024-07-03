@@ -19,7 +19,7 @@ pub type ProjectIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidat
 
 pub type GroupIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidator>::GroupId;
 
-pub type CollectiveIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidator>::CollectiveId;
+pub type CollectiveId = u32;
 /// ValidatorAccounts type of pallet
 pub type ValidatorAccountsListOf<T> =
 	BoundedVec<<T as frame_system::Config>::AccountId, <T as pallet::Config>::MaxValidators>;

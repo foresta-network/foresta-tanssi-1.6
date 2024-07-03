@@ -161,7 +161,6 @@ impl pallet_carbon_credits::Config for Test {
 	type MinProjectId = ConstU32<1000>;
 	type NFTHandler = Uniques;
 	type PalletId = CarbonCreditsPalletId;
-	type CollectiveId = u32;
 	type MaxRetirementRecords = ConstU32<100>;
 	type WeightInfo = ();
 }
@@ -236,13 +235,12 @@ impl CarbonCreditsValidator for DummyValidator {
 	type Address = AccountId;
 	type AssetId = u32;
 	type GroupId = u32;
-	type CollectiveId = u32;
 
 	fn project_details(_asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
 		Some((0, 0))
 	}
 
-	fn get_collective_id(_project_id: &Self::ProjectId) -> Self::CollectiveId {
+	fn get_collective_id(_project_id: &Self::ProjectId) -> u32 {
 		0
 	}
 
@@ -363,6 +361,8 @@ parameter_types! {
 impl pallet_foresta_collectives::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
+	type Currency = Tokens;
+	type CurrencyBalance = u128;
     type KYCProvider = KYCMembership;
 	type DexProvider = Dex;
 	type ProposalId = u32;

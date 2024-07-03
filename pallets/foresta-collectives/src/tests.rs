@@ -165,7 +165,7 @@ pub fn create_project<T: Config>(
 
 	assert_ok!(CarbonCredits::create(
 		RawOrigin::Signed(originator_account).into(),
-		creation_params,Some(1u32)
+		creation_params,1u32
 	));
 
 }

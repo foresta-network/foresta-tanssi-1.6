@@ -182,12 +182,10 @@ pub trait CarbonCreditsValidator {
 	/// AssetId type representing the asset
 	type AssetId: Clone + PartialEq + Debug;
 
-	type CollectiveId: Clone + PartialEq + Debug + Encode + Decode + MaxEncodedLen + TypeInfo + Eq + EncodeLike;
-
 	/// Returns ProjectId and GroupId if the given AssetId represents a CarbonCredit Project
 	fn project_details(asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)>;
 
-	fn get_collective_id(project_id: &Self::ProjectId) -> Self::CollectiveId;
+	fn get_collective_id(project_id: &Self::ProjectId) -> u32;
 
 	/// Get collective id
 

@@ -168,7 +168,7 @@ pub fn create_project_and_mint<T: Config>(
 
 	assert_ok!(CarbonCredits::create(
 		RawOrigin::Signed(originator_account).into(),
-		creation_params,Some(1u32)
+		creation_params,1u32
 	));
 
 	// approve project so minting can happen

@@ -61,7 +61,7 @@ pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use codec::HasCompact;
+    use codec::{HasCompact, Codec};
     use frame_support::{
         pallet_prelude::*,
         traits::tokens::{
@@ -72,7 +72,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::{ AtLeast32BitUnsigned, CheckedAdd, One };
-    use sp_std::{ convert::TryInto, vec::Vec };
+    use sp_std::{ convert::TryInto, vec::Vec, fmt::Debug };
 
     use super::*;
 
@@ -148,26 +148,9 @@ pub mod pallet {
             MaybeSerializeDeserialize +
             MaxEncodedLen +
             TypeInfo +
-            CheckedAdd +
             One +
             From<u32> +
             Into<u32> +
-            CheckedAdd;
-
-        //Display CollectiveId
-        type CollectiveId: Member +
-            Parameter +
-            Default +
-            Copy +
-            HasCompact +
-            MaybeSerializeDeserialize +
-            MaxEncodedLen +
-            TypeInfo +
-            From<u32> +
-            Into<u32> +
-            sp_std::fmt::Display +
-            sp_std::cmp::PartialOrd +
-            sp_std::cmp::Ord +
             CheckedAdd;
 
         /// The CarbonCredits pallet id
@@ -407,11 +390,11 @@ pub mod pallet {
         pub fn create(
             origin: OriginFor<T>,
             params: ProjectCreateParams<T>,
-            collective_id: Option<T::CollectiveId>
+            collective_id: CollectiveId
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::check_kyc_approval(&sender)?;
-            let project_id = Self::create_project(sender, params, collective_id)?;
+            let project_id = Self::create_project(sender, params, Some(collective_id))?;
             // emit event
             Self::deposit_event(Event::ProjectCreated { project_id });
             Ok(())
@@ -652,7 +635,6 @@ impl<T: Config> primitives::CarbonCreditsValidator for Pallet<T> {
 	type Address = T::AccountId;
 	type GroupId = T::GroupId;
 	type AssetId = T::AssetId;
-	type CollectiveId = T::CollectiveId;
 	type Amount = T::Balance;
 
 	fn project_details(asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
@@ -672,9 +654,9 @@ impl<T: Config> primitives::CarbonCreditsValidator for Pallet<T> {
 		Self::retire_carbon_credits(sender, project_id, group_id, amount, reason, ipfs_hash, ipns_link, image_link)
 	}
 
-	fn get_collective_id(project_id: &Self::ProjectId) -> Self::CollectiveId {
+	fn get_collective_id(project_id: &Self::ProjectId) -> u32 {
 		let project_details = Self::get_project_details(*project_id).unwrap();
 		let collective_id = project_details.collective_id.unwrap();
-		collective_id
+		collective_id as u32
 	}
 }
