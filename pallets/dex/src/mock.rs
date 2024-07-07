@@ -7,13 +7,14 @@ use frame_support::{
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU32, Contains, Nothing},
 	PalletId,
 };
-
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_system::{EnsureRoot, EnsureSigned};
 use orml_traits::parameter_type_with_key;
 use primitives::{Amount, Balance, CarbonCreditsValidator, CurrencyId};
 use sp_core::{ConstU128, ConstU64, H256};
+use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup, AccountIdConversion},
 	BuildStorage, Percent,
 };
 use sp_std::convert::{TryFrom, TryInto};
@@ -31,6 +32,9 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
+		KYCMembership: pallet_membership,
+		Uniques: pallet_uniques,
+		CarbonCredits: pallet_carbon_credits::{Pallet, Call, Storage, Event<T>},
 		Tokens: orml_tokens::{Pallet, Call, Storage, Event<T>},
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 	}
@@ -130,36 +134,39 @@ impl orml_tokens::Config for Test {
 	type WeightInfo = ();
 }
 
-pub struct DummyValidator;
-impl CarbonCreditsValidator for DummyValidator {
-	type ProjectId = u32;
-	type Amount = Balance;
-	type Address = AccountId;
-	type AssetId = u32;
-	type GroupId = u32;
-
-	fn project_details(_asset_id: &Self::AssetId) -> Option<(Self::ProjectId, Self::GroupId)> {
-		Some((0, 0))
-	}
-
-	fn get_collective_id(_project_id: &Self::ProjectId) -> u32 {
-		0
-	}
-
-	fn retire_credits(
-		_sender: Self::Address,
-		_project_id: Self::ProjectId,
-		_group_id: Self::GroupId,
-		_amount: Self::Amount,
-		_retirement_reason: Option<Vec<u8>>,
-		_ipfs_hash: Option<Vec<u8>>,
-        _ipns_link: Option<Vec<u8>>,
-		_image_link: Option<Vec<u8>>
-	) -> DispatchResult {
-		Ok(())
-	}
-
-}
+parameter_types! {
+	pub const MarketplaceEscrowAccount : u64 = 10;
+	pub const CarbonCreditsPalletId: PalletId = PalletId(*b"bitg/ccp");
+	pub CarbonCreditsPalletAcccount : u64 = PalletId(*b"bitg/ccp").into_account_truncating();
+	#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo, Debug)]
+	pub const MaxGroupSize: u32 = 10;
+  }
+  
+  impl pallet_carbon_credits::Config for Test {
+	  type AssetHandler = Assets;
+	  type AssetId = u32;
+	  type Balance = u128;
+	  type RuntimeEvent = RuntimeEvent;
+	  type ForceOrigin = frame_system::EnsureRoot<u64>;
+	  type ItemId = u32;
+	  type ProjectId = u32;
+	  type GroupId = u32;
+	  type KYCProvider = KYCMembership;
+	  type MarketplaceEscrow = MarketplaceEscrowAccount;
+	  type MaxAuthorizedAccountCount = ConstU32<2>;
+	  type MaxDocumentCount = ConstU32<2>;
+	  type MaxGroupSize = MaxGroupSize;
+	  type MaxIpfsReferenceLength = ConstU32<20>;
+	  type MaxLongStringLength = ConstU32<100>;
+	  type MaxCoordinatesLength = ConstU32<8>;
+	  type MaxRoyaltyRecipients = ConstU32<5>;
+	  type MaxShortStringLength = ConstU32<20>;
+	  type MinProjectId = ConstU32<1000>;
+	  type NFTHandler = Uniques;
+	  type PalletId = CarbonCreditsPalletId;
+	  type MaxRetirementRecords = ConstU32<100>;
+	  type WeightInfo = ();
+  }
 
 pub struct MockKycProvider;
 impl Contains<u64> for MockKycProvider {
@@ -171,6 +178,38 @@ impl Contains<u64> for MockKycProvider {
 
 		true
 	}
+}
+
+impl pallet_uniques::Config for Test {
+	type AttributeDepositBase = ConstU128<1>;
+	type CollectionDeposit = ConstU128<0>;
+	type CollectionId = u32;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
+	type Currency = Balances;
+	type DepositPerByte = ConstU128<1>;
+	type RuntimeEvent = RuntimeEvent;
+	type ForceOrigin = frame_system::EnsureRoot<u64>;
+	type ItemDeposit = ConstU128<0>;
+	type ItemId = u32;
+	type KeyLimit = ConstU32<50>;
+	type Locker = ();
+	type MetadataDepositBase = ConstU128<1>;
+	type StringLimit = ConstU32<50>;
+	type ValueLimit = ConstU32<50>;
+	type WeightInfo = ();
+}
+
+impl pallet_membership::Config for Test {
+	type AddOrigin = EnsureRoot<u64>;
+	type RuntimeEvent = RuntimeEvent;
+	type MaxMembers = ConstU32<10>;
+	type MembershipChanged = ();
+	type MembershipInitialized = ();
+	type PrimeOrigin = EnsureRoot<u64>;
+	type RemoveOrigin = EnsureRoot<u64>;
+	type ResetOrigin = EnsureRoot<u64>;
+	type SwapOrigin = EnsureRoot<u64>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -202,11 +241,9 @@ impl pallet_dex::Config for Test {
 	type Asset = Assets;
 	type Currency = Tokens;
 	type CurrencyBalance = u128;
-	type AssetBalance = u128;
 	type PalletId = DexPalletId;
 	type KYCProvider = MockKycProvider;
 	type MinPricePerUnit = MinPricePerUnit;
-	type AssetValidator = DummyValidator;
 	type MaxValidators = MaxValidators;
 	type MaxTxHashLen = MaxTxHashLen;
 	type BuyOrderExpiryTime = BuyOrderExpiryTime;
@@ -227,6 +264,13 @@ impl pallet_dex::Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
+	pallet_membership::GenesisConfig::<Test> {
+		members: sp_core::bounded_vec![1, 3, 10],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+	
 	orml_tokens::GenesisConfig::<Test> { balances: vec![(4, USDT, 100), (10, USDT, 10000)] }
 		.assimilate_storage(&mut t)
 		.unwrap();

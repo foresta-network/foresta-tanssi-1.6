@@ -156,13 +156,12 @@ pub mod pallet {
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_carbon_credits::Config +
-	 pallet_carbon_credits_pool::Config {
+	 pallet_carbon_credits_pool::Config + pallet_dex::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
 		type KYCProvider: Contains<Self::AccountId>;
-		type DexProvider: DexFunctions<Address = Self::AccountId>;
 		type CurrencyBalance: Member
 			+ Parameter
 			+ AtLeast32BitUnsigned
@@ -1038,7 +1037,7 @@ pub mod pallet {
 		pub fn do_add_validator(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
 			if is_approved == true {
 				let params = Self::get_dex_params_info(vote_id).ok_or(Error::<T>::ParamsNotFound)?;
-				let _ = T::DexProvider::add_validator_account(params.account);
+				let _ = pallet_dex::Pallet::<T>::do_add_validator_account(params.account);
 			}
 
 			Ok(())
@@ -1048,7 +1047,7 @@ pub mod pallet {
 		pub fn do_remove_validator(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
 			if is_approved == true {
 				let params = Self::get_dex_params_info(vote_id).ok_or(Error::<T>::ParamsNotFound)?;
-				let _ = T::DexProvider::remove_validator_account(params.account);
+				let _ = pallet_dex::Pallet::<T>::do_remove_validator_account(params.account);
 			}
 
 			Ok(())
@@ -1058,7 +1057,7 @@ pub mod pallet {
 		pub fn do_set_seller_payout_authority(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
 			if is_approved == true {
 				let params = Self::get_dex_params_info(vote_id).ok_or(Error::<T>::ParamsNotFound)?;
-				let _ = T::DexProvider::set_seller_payout_authority(params.account);
+				let _ = pallet_dex::Pallet::<T>::do_set_seller_payout_authority(params.account);
 			}
 
 			Ok(())

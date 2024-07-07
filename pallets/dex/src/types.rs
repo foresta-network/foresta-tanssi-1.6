@@ -2,22 +2,21 @@ use super::*;
 use frame_support::{traits::fungibles::Inspect, BoundedVec};
 use frame_system::pallet_prelude::BlockNumberFor;
 use orml_traits::MultiCurrency;
-use primitives::CarbonCreditsValidator;
+//use primitives::CarbonCreditsValidator;
 pub use primitives::UserLevel;
 use sp_runtime::traits::Get;
 
 pub type CurrencyBalanceOf<T> =
 	<<T as Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub type AssetBalanceOf<T> =
-	<<T as Config>::Asset as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+//pub type AssetBalanceOf<T> = T::Balance;
 
 pub type AssetIdOf<T> =
 	<<T as Config>::Asset as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 
-pub type ProjectIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidator>::ProjectId;
+pub type ProjectIdOf<T> = <T as pallet_carbon_credits::Config>::ProjectId;
 
-pub type GroupIdOf<T> = <<T as Config>::AssetValidator as CarbonCreditsValidator>::GroupId;
+pub type GroupIdOf<T> = <T as pallet_carbon_credits::Config>::GroupId;
 
 pub type CollectiveId = u32;
 /// ValidatorAccounts type of pallet
@@ -26,15 +25,15 @@ pub type ValidatorAccountsListOf<T> =
 
 pub type OrderInfoOf<T> = OrderInfo<
 	<T as frame_system::Config>::AccountId,
-	AssetIdOf<T>,
-	AssetBalanceOf<T>,
+	<T as pallet_carbon_credits::Config>::AssetId,
+	<T as pallet_carbon_credits::Config>::Balance,
 	CurrencyBalanceOf<T>,
 >;
 
 pub type BuyOrderInfoOf<T> = BuyOrderInfo<
 	<T as frame_system::Config>::AccountId,
-	AssetIdOf<T>,
-	AssetBalanceOf<T>,
+	<T as pallet_carbon_credits::Config>::AssetId,
+	<T as pallet_carbon_credits::Config>::Balance,
 	CurrencyBalanceOf<T>,
 	BlockNumberFor<T>,
 	<T as Config>::MaxTxHashLen,

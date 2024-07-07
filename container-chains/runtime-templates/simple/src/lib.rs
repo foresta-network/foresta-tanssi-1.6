@@ -823,9 +823,7 @@ impl pallet_dex::Config for Runtime {
 	type Asset = Assets;
 	type Currency = Tokens;
 	type CurrencyBalance = u128;
-	type AssetBalance = u128;
 	type PalletId = DexPalletId;
-	type AssetValidator = CarbonCredits;
 	type MinPricePerUnit = MinPricePerUnit;
 	type MaxValidators = MaxValidators;
 	type MaxTxHashLen = MaxTxHashLen;
@@ -892,7 +890,6 @@ impl pallet_foresta_collectives::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
     type Preimages = Preimage;
     type KYCProvider = KYCPallet;
-    type DexProvider = Dex;
     type MaxNumCollectives = MaxNumCollectives;
     type ProposalId = u32;
     type VoteId = u32;

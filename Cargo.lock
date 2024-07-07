@@ -9134,6 +9134,8 @@ dependencies = [
  "pallet-assets",
  "pallet-balances 4.0.0-dev (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
  "pallet-carbon-credits",
+ "pallet-membership",
+ "pallet-uniques",
  "parity-scale-codec",
  "scale-info",
  "sp-core 21.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",

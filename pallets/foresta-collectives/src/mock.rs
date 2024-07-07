@@ -300,11 +300,9 @@ impl pallet_dex::Config for Test {
 	type Asset = Assets;
 	type Currency = Tokens;
 	type CurrencyBalance = u128;
-	type AssetBalance = u128;
 	type PalletId = DexPalletId;
 	type KYCProvider = MockKycProvider;
 	type MinPricePerUnit = MinPricePerUnit;
-	type AssetValidator = DummyValidator;
 	type MaxValidators = MaxValidators;
 	type MaxTxHashLen = MaxTxHashLen;
 	type BuyOrderExpiryTime = BuyOrderExpiryTime;
@@ -364,7 +362,6 @@ impl pallet_foresta_collectives::Config for Test {
 	type Currency = Tokens;
 	type CurrencyBalance = u128;
     type KYCProvider = KYCMembership;
-	type DexProvider = Dex;
 	type ProposalId = u32;
 	type VoteId = u32;
 	type PalletId = ForestaCollectivesPalletId;
