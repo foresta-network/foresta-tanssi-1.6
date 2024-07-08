@@ -800,7 +800,6 @@ parameter_types! {
     pub const MinPricePerUnit : u32 = 1;
     pub const MaxPaymentFee : Percent = Percent::from_percent(10);
     pub const MaxPurchaseFee : Balance = 10 * UNIT;
-    pub const MaxCollectiveFee : Percent = Percent::from_percent(5);
     #[derive(Clone, scale_info::TypeInfo)]
     pub const MaxValidators : u32 = 10;
     #[derive(Clone, scale_info::TypeInfo, Debug, PartialEq)]
@@ -833,7 +832,6 @@ impl pallet_dex::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type MaxPaymentFee = MaxPaymentFee;
 	type MaxPurchaseFee = MaxPurchaseFee;
-    type MaxCollectiveFee = MaxCollectiveFee;
 	type MaxAddressLen = MaxAddressLen;
 	type MaxOrderIds = MaxOrderIds;
 	type MaxPayoutsToStore = MaxPayoutsToStore;

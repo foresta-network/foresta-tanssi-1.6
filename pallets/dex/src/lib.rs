@@ -108,9 +108,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPurchaseFee: Get<CurrencyBalanceOf<Self>>;
 
-		#[pallet::constant]
-		type MaxCollectiveFee: Get<Percent>;
-
 		/// The DEX pallet id
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -194,23 +191,6 @@ pub mod pallet {
 	#[pallet::getter(fn seller_receivables)]
 	pub type SellerReceivables<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, CurrencyBalanceOf<T>>;
-	
-	// Collective Fees on each transaction
-	#[pallet::storage]
-	#[pallet::getter(fn collective_fees)]
-	pub type CollectiveFees<T: Config> = StorageValue<_, Percent, ValueQuery>;
-
-
-	#[pallet::storage]
-	#[pallet::getter(fn collective_receivables)]
-	pub type CollectiveReceivables<T: Config> =
-		StorageMap<_, Blake2_128Concat, CollectiveId, CurrencyBalanceOf<T>>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn member_receivables)]
-	pub type MemberReceivables<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, CurrencyBalanceOf<T>>;
-
 
 	#[pallet::storage]
 	#[pallet::getter(fn seller_payout_authority)]
@@ -368,8 +348,6 @@ pub mod pallet {
 		UserOpenOrderUnitsLimtNotFound,
 		/// Min validators cannot be zero
 		MinValidatorsCannotBeZero,
-		/// CannotSetMoreThanMaxCollectiveFee
-		CannotSetMoreThanMaxCollectiveFee,
 		/// NotEnoughFunds
 		NotEnoughFunds,
 		/// InvalidPoolId
@@ -589,13 +567,10 @@ pub mod pallet {
 				let purchase_fee: u128 =
 					PurchaseFees::<T>::get().try_into().map_err(|_| Error::<T>::ArithmeticError)?;
 
-				let collective_share = CollectiveFees::<T>::get().mul_ceil(required_currency);
-
-				let mut total_fee =
+				let total_fee =
 					payment_fee.checked_add(purchase_fee).ok_or(Error::<T>::OrderUnitsOverflow)?;
 
-				total_fee =
-					total_fee.checked_add(collective_share).ok_or(Error::<T>::OrderUnitsOverflow)?;
+		
 				let total_amount = total_fee
 					.checked_add(required_currency)
 					.ok_or(Error::<T>::OrderUnitsOverflow)?;
@@ -651,7 +626,6 @@ pub mod pallet {
 						asset_id,
 						total_fee: total_fee.into(),
 						total_amount: total_amount.into(),
-						collective_share: collective_share.into(),
 						expiry_time,
 						payment_info: None,
 					},
@@ -776,35 +750,6 @@ pub mod pallet {
 									.ok_or(Error::<T>::OrderUnitsOverflow)?;
 								let new_receivables = current_receivables
 									.checked_add(&amount_to_seller)
-									.ok_or(Error::<T>::OrderUnitsOverflow)?;
-								*receivable = Some(new_receivables);
-								Ok(())
-							},
-						)?;
-
-						let (project_id, group_id) =
-						pallet_carbon_credits::Pallet::<T>::asset_id_lookup(order.asset_id)
-								.ok_or(Error::<T>::AssetNotPermitted)?;
-
-
-							//let collective_id: CollectiveId = pallet_carbon_credits::Pallet::<T>::get_collective_id(&project_id);
-
-							let project_details = pallet_carbon_credits::Pallet::<T>::get_project_details(project_id).unwrap();
-							let collective_id = project_details.collective_id.unwrap();
-								//let collective_id: u32 =
-								//coll_id.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
-
-						//let current_receivables = CollectiveReceivables::<T>::get(collective_id);
-
-						CollectiveReceivables::<T>::try_mutate(
-							collective_id,
-							|receivable| -> DispatchResult {
-								let current_receivables =
-									receivable.get_or_insert_with(Default::default);
-								let amount_to_collective = order
-									.collective_share;
-								let new_receivables = current_receivables
-									.checked_add(&amount_to_collective)
 									.ok_or(Error::<T>::OrderUnitsOverflow)?;
 								*receivable = Some(new_receivables);
 								Ok(())
@@ -1079,77 +1024,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force set PurchaseFee value
-		/// Can only be called by ForceOrigin
-		#[pallet::call_index(14)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_purchase_fee())]
-		pub fn force_set_collective_fee(
-			origin: OriginFor<T>,
-			collective_fee: Percent,
-		) -> DispatchResult {
-			<T as pallet::Config>::ForceOrigin::ensure_origin(origin)?;
-			ensure!(
-				collective_fee <= T::MaxCollectiveFee::get(),
-				Error::<T>::CannotSetMoreThanMaxCollectiveFee
-			);
-			CollectiveFees::<T>::set(collective_fee);
-			Ok(())
-		}
-
-		#[pallet::call_index(15)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_purchase_fee())]
-		pub fn distribute_collective_funds(
-			origin: OriginFor<T>,
-			collective_id: CollectiveId,
-			members: BoundedVec<T::AccountId, T::MaxMembersPerCollective>,
-			amount_per_member: CurrencyBalanceOf<T>
-		) -> DispatchResult {
-			<T as pallet::Config>::ForceOrigin::ensure_origin(origin)?;
-
-			let num_payments = members.len();
-
-			// calculate fees
-
-			let amount_per_member_as_u128: u128 =
-			amount_per_member.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
-
-			let num_payments_u128: u128 = num_payments.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
-
-
-			let total_payment = amount_per_member_as_u128
-					.checked_mul(num_payments_u128)
-					.ok_or(Error::<T>::ArithmeticError)?;
-			
-
-			let mut collective_receivables = CollectiveReceivables::<T>::get(collective_id.clone()).unwrap();
-
-			let collective_receivables_as_u128 : u128 = collective_receivables.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
-
-			ensure!(total_payment <= collective_receivables_as_u128, Error::<T>::NotEnoughFunds);
-
-			for iter in 0..num_payments {
-				MemberReceivables::<T>::try_mutate(
-					members[iter].clone(),
-					|receivable| -> DispatchResult {
-						let current_receivables =
-							receivable.get_or_insert_with(Default::default);
-						collective_receivables = 
-							collective_receivables.checked_sub(&amount_per_member)
-							.ok_or(Error::<T>::OrderUnitsOverflow)?;
-						let new_receivables = current_receivables
-							.checked_add(&amount_per_member)
-							.ok_or(Error::<T>::OrderUnitsOverflow)?;
-						*receivable = Some(new_receivables);
-						Ok(())
-					},
-				)?;
-
-			}
-
-			CollectiveReceivables::<T>::insert(collective_id,collective_receivables);
-
-			Ok(())
-		}
 	}
 
 	impl<T: Config> Pallet<T> {

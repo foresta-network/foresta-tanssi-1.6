@@ -277,7 +277,6 @@ parameter_types! {
 	pub const MinPricePerUnit : u32 = 1;
 	pub const MaxPaymentFee : Percent = Percent::from_percent(50);
 	pub const MaxPurchaseFee : u128 = 100u128;
-	pub const MaxCollectiveFee : Percent = Percent::from_percent(5);
 	#[derive(Clone, scale_info::TypeInfo)]
 	pub const MaxValidators : u32 = 10;
 	#[derive(Clone, scale_info::TypeInfo, Debug, PartialEq)]
@@ -314,7 +313,6 @@ impl pallet_dex::Config for Test {
 	type MaxPaymentFee = MaxPaymentFee;
 	type MaxPurchaseFee = MaxPurchaseFee;
 	type MaxPayoutsToStore = MaxPayoutsToStore;
-	type MaxCollectiveFee = MaxCollectiveFee;
 	type MaxMembersPerCollective = MaxMembersC;
 	type WeightInfo = ();
 }
