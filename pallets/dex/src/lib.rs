@@ -192,6 +192,12 @@ pub mod pallet {
 	pub type SellerReceivables<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, CurrencyBalanceOf<T>>;
 
+	// Project Treasury
+	#[pallet::storage]
+	#[pallet::getter(fn get_pot)]
+	pub type Treasury<T: Config> =
+		StorageMap<_, Blake2_128Concat, ProjectIdOf<T>, CurrencyBalanceOf<T>>;
+	
 	#[pallet::storage]
 	#[pallet::getter(fn seller_payout_authority)]
 	// The account that can confirm payouts to seller
@@ -1084,6 +1090,11 @@ pub mod pallet {
 		pub fn do_set_seller_payout_authority(authority: T::AccountId) -> DispatchResult {
 			SellerPayoutAuthority::<T>::set(Some(authority.clone()));
 			Self::deposit_event(Event::SellerPayoutAuthoritySet { authority });
+			Ok(())
+		}
+
+		pub fn do_spend_funds(project_id: ProjectIdOf<T>) -> DispatchResult {
+			
 			Ok(())
 		}
 	}

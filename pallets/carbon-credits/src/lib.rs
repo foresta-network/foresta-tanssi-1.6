@@ -394,7 +394,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::check_kyc_approval(&sender)?;
-            let project_id = Self::create_project(sender, params, Some(collective_id))?;
+            let project_id = Self::create_project(sender, params, collective_id)?;
             // emit event
             Self::deposit_event(Event::ProjectCreated { project_id });
             Ok(())
@@ -656,7 +656,7 @@ impl<T: Config> primitives::CarbonCreditsValidator for Pallet<T> {
 
 	fn get_collective_id(project_id: &Self::ProjectId) -> u32 {
 		let project_details = Self::get_project_details(*project_id).unwrap();
-		let collective_id = project_details.collective_id.unwrap();
+		let collective_id = project_details.collective_id;
 		collective_id as u32
 	}
 }

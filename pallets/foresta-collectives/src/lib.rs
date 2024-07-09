@@ -82,6 +82,15 @@ pub mod pallet {
 
 	#[derive(Clone, Encode, Decode, PartialEq, MaxEncodedLen, Debug, TypeInfo, Eq)]
 	#[scale_info(skip_type_params(T))]
+	pub struct TreasuryProposal<T:Config> {
+        pub creator: T::AccountId,
+		pub project_id: <T as pallet_carbon_credits::Config>::ProjectId,
+		pub beneficiary: T::AccountId,
+		pub amount: CurrencyBalanceOf<T>,
+	}
+
+	#[derive(Clone, Encode, Decode, PartialEq, MaxEncodedLen, Debug, TypeInfo, Eq)]
+	#[scale_info(skip_type_params(T))]
 	pub struct PoolParams<T:Config> {
 		id: <T as pallet_carbon_credits_pool::Config>::PoolId,
 		admin: T::AccountId,
@@ -121,6 +130,7 @@ pub mod pallet {
 		RemoveValidator,
 		SetSellerPayoutAuthority,
 		Proposal,
+		TreasuryProposal,
 		Other,
 	}
 
@@ -281,6 +291,16 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn get_treasury_proposal)]
+	pub(super) type TreasuryProposals<T:Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::VoteId,
+		TreasuryProposal<T>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn get_membership_count)]
 	pub(super) type MembersCount<T:Config> = StorageMap<
 		_,
@@ -296,6 +316,16 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		CollectiveId,
+		T::ProposalId,
+		ValueQuery,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_treasury_proposal_count)]
+	pub(super) type TreasuryProposalsCount<T:Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		<T as pallet_carbon_credits::Config>::ProjectId,
 		T::ProposalId,
 		ValueQuery,
 	>;
@@ -875,7 +905,7 @@ pub mod pallet {
 					let _project_id = pallet_carbon_credits::Pallet::<T>::create_project(
 						manager,
 						params,
-						Some(collective_id),
+						collective_id,
 					)?;					
 					Ok(())
 				},
@@ -956,6 +986,68 @@ pub mod pallet {
 			let proposal_count2 = proposal_count.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
 
 			ProposalsCount::<T>::insert(collective_id,proposal_count2);
+
+			Ok(())
+		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
+		pub fn create_treasury_proposal(
+			origin: OriginFor<T>,
+			project_id: <T as pallet_carbon_credits::Config>::ProjectId,
+			beneficiary: T::AccountId,
+			amount: CurrencyBalanceOf<T>,
+			category: VoteCategory, 
+			priority: VotePriority
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let project_details: pallet_carbon_credits::ProjectDetail<T> = pallet_carbon_credits::Pallet::get_project_details(project_id)
+				.ok_or(Error::<T>::ProjectNotFound)?;
+			let collective_id = project_details.collective_id;
+			ensure!(Members::<T>::contains_key(collective_id.clone(),&who.clone()), Error::<T>::MemberDoesNotExist);
+			
+			let uid = Self::votes_count();
+		
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			let final_block = current_block + T::VotingDuration::get();
+
+			ActiveVoting::<T>::try_mutate(final_block, |projects| {
+				projects.try_push(uid).map_err(|_| Error::<T>::MaxVotingExceeded)?;
+				Ok::<(),DispatchError>(())
+			})?;
+
+			let vote_info = Vote::<T> {
+				yes_votes: 0,
+				no_votes: 0,
+				end: final_block,
+				status: VoteStatus::Deciding,
+				category,
+				priority,
+				vote_type: VoteType::TreasuryProposal,
+				collective_id: Some(collective_id),
+				project_id: None,
+			};
+
+			let proposal_count = Self::get_treasury_proposal_count(project_id);
+
+			let proposal_info = TreasuryProposal::<T> {
+				creator: who.clone(),
+				project_id: project_id,
+				beneficiary: beneficiary,
+				amount: amount,
+			};
+
+
+			ProjectVote::<T>::insert(uid,&vote_info);
+			TreasuryProposals::<T>::insert(uid,&proposal_info);
+
+			let uid2 = uid.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
+			VotesCount::<T>::put(uid2);
+
+			let proposal_count2 = proposal_count.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
+
+			TreasuryProposalsCount::<T>::insert(project_id,proposal_count2);
 
 			Ok(())
 		}
