@@ -192,12 +192,19 @@ pub mod pallet {
 	pub type SellerReceivables<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, CurrencyBalanceOf<T>>;
 
-	// Project Treasury
+	// Project Treasury	
 	#[pallet::storage]
 	#[pallet::getter(fn get_pot)]
-	pub type Treasury<T: Config> =
-		StorageMap<_, Blake2_128Concat, ProjectIdOf<T>, CurrencyBalanceOf<T>>;
-	
+	pub(super) type Treasury<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ProjectIdOf<T>,
+		Blake2_128Concat,
+		CurrencyIdOf<T>,
+		CurrencyBalanceOf<T>,
+		ValueQuery,
+	>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn seller_payout_authority)]
 	// The account that can confirm payouts to seller
@@ -360,6 +367,8 @@ pub mod pallet {
 		InvalidPoolId,
 		/// ProjectNotFound
 		ProjectNotFound,
+		/// Treasury Not Found
+		TreasuryNotFound,
 	}
 
 	#[pallet::hooks]
@@ -1093,8 +1102,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn do_spend_funds(project_id: ProjectIdOf<T>) -> DispatchResult {
+		pub fn do_spend_funds(project_id: ProjectIdOf<T>, beneficiary: T::AccountId, currency_id: CurrencyIdOf<T>, amount: CurrencyBalanceOf<T>) -> DispatchResult {
 			
+			let mut balance = Self::get_pot(project_id,currency_id);
+			ensure!(balance >= amount, Error::<T>::NotEnoughFunds);
+
+			let account_id = Self::account_id();
+
+			let new_balance = balance - amount;
+			T::Currency::transfer(currency_id,&account_id,&beneficiary,amount)?;
+			Treasury::<T>::insert(project_id,currency_id,new_balance);
 			Ok(())
 		}
 	}

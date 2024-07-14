@@ -8,7 +8,8 @@ use sp_runtime::traits::Get;
 
 pub type CurrencyBalanceOf<T> =
 	<<T as Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::Balance;
-
+pub type CurrencyIdOf<T> =
+	<<T as Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
 //pub type AssetBalanceOf<T> = T::Balance;
 
 pub type AssetIdOf<T> =

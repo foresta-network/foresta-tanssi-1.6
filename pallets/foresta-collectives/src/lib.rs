@@ -31,8 +31,11 @@ pub mod pallet {
 	type CollectiveId = u32;
 
 	pub type CurrencyBalanceOf<T> =
-	<<T as Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as pallet_dex::Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::Balance;
 
+	type CurrencyIdOf<T> =
+	<<T as pallet_dex::Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
+	
 	use sp_runtime::{
 		traits::{Bounded as ArithBounded, One, MaybeSerializeDeserialize, CheckedAdd,
 			 AccountIdConversion, AtLeast32BitUnsigned, Saturating}
@@ -86,6 +89,7 @@ pub mod pallet {
         pub creator: T::AccountId,
 		pub project_id: <T as pallet_carbon_credits::Config>::ProjectId,
 		pub beneficiary: T::AccountId,
+		pub currency_id: CurrencyIdOf<T>,
 		pub amount: CurrencyBalanceOf<T>,
 	}
 
@@ -559,6 +563,9 @@ pub mod pallet {
 						VoteType::Proposal => {
 							let _ = Self::do_schedule_dispatch(*v_id,is_approved);	
 						},
+						VoteType::TreasuryProposal => {
+							let _ = Self::do_manage_treasury(*v_id,is_approved);	
+						},
 						_ => ()
 					}
 
@@ -996,6 +1003,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			project_id: <T as pallet_carbon_credits::Config>::ProjectId,
 			beneficiary: T::AccountId,
+			currency_id: CurrencyIdOf<T>,
 			amount: CurrencyBalanceOf<T>,
 			category: VoteCategory, 
 			priority: VotePriority
@@ -1035,6 +1043,7 @@ pub mod pallet {
 				creator: who.clone(),
 				project_id: project_id,
 				beneficiary: beneficiary,
+				currency_id: currency_id,
 				amount: amount,
 			};
 
@@ -1210,8 +1219,18 @@ pub mod pallet {
 				});
 				
 			}
-			
-			
+
+			Ok(())
+		}
+
+		pub fn do_manage_treasury(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
+			if is_approved == true {
+				let proposal = Self::get_treasury_proposal(vote_id).ok_or(Error::<T>::ProposalNotFound)?;
+				
+				pallet_dex::Pallet::<T>::do_spend_funds(proposal.project_id, proposal.beneficiary,
+				proposal.currency_id, proposal.amount)?;
+			}
+
 			Ok(())
 		}
 
