@@ -3,7 +3,7 @@
 // This code is licensed under MIT license (see LICENSE.txt for details)
 use crate::{
 	mock::*, Config, types::UserLevel, BuyOrders, BuyOrdersByUser, Error, Event, Orders, SellerReceivables,
-};
+Treasury };
 use frame_support::{
 	assert_noop, assert_ok, traits::OnIdle, weights::Weight, BoundedVec, PalletId,
 };
@@ -12,7 +12,8 @@ use sp_runtime::{traits::AccountIdConversion, Percent};
 use pallet_carbon_credits::{
 	BatchGroupListOf, BatchGroupOf, BatchOf, ProjectCreateParams, RegistryListOf, SDGTypesListOf,
 };
-use primitives::{Batch, RegistryDetails, RegistryName, Royalty, SDGDetails, SdgType};
+use primitives::{Batch, RegistryDetails, RegistryName, Royalty, SDGDetails, SdgType, CurrencyId};
+use orml_traits::MultiCurrency;
 
 /// helper function to add authorised account
 fn add_validator_account(validator_account: u64) {
@@ -354,6 +355,7 @@ fn buy_order_should_work() {
 		// set fee values
 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// configure limit to avoid failure
 		assert_ok!(Dex::force_set_open_order_allowed_limits(
@@ -482,6 +484,7 @@ fn validate_buy_order_should_work() {
 		// set fee values
 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// configure limit to avoid failure
 		assert_ok!(Dex::force_set_open_order_allowed_limits(
@@ -505,6 +508,7 @@ fn validate_buy_order_should_work() {
 				buy_order_id,
 				0u32,
 				vec![].try_into().unwrap(),
+				USDT,
 				None
 			),
 			Error::<Test>::NotAuthorised
@@ -517,6 +521,7 @@ fn validate_buy_order_should_work() {
 			buy_order_id,
 			0u32,
 			tx_proof.clone(),
+			CurrencyId::USDT,
 			None
 		));
 
@@ -563,6 +568,7 @@ fn payment_is_processed_after_validator_threshold_reached() {
 		// set fee values
 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// configure limit to avoid failure
 		assert_ok!(Dex::force_set_open_order_allowed_limits(
@@ -589,6 +595,7 @@ fn payment_is_processed_after_validator_threshold_reached() {
 				buy_order_id,
 				1u32,
 				vec![].try_into().unwrap(),
+				USDT,
 				None
 			),
 			Error::<Test>::NotAuthorised
@@ -600,6 +607,7 @@ fn payment_is_processed_after_validator_threshold_reached() {
 			buy_order_id,
 			1u32,
 			tx_proof.clone(),
+			USDT,
 			None
 		));
 
@@ -630,6 +638,7 @@ fn payment_is_processed_after_validator_threshold_reached() {
 				buy_order_id,
 				1u32,
 				tx_proof.clone(),
+				USDT,
 				None
 			),
 			Error::<Test>::DuplicateValidation
@@ -646,6 +655,7 @@ fn payment_is_processed_after_validator_threshold_reached() {
 			buy_order_id,
 			1u32,
 			tx_proof,
+			USDT,
 			None
 		));
 
@@ -664,10 +674,13 @@ fn payment_is_processed_after_validator_threshold_reached() {
 			}
 			.into()
 		);
-
+		let project_id = 0;
 		// seller receivable should be updated with the correct amount
 		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
-		assert_eq!(seller_receivables, 10);
+		// seller 9 treasury 1
+		assert_eq!(seller_receivables, 9);
+		let pot = Treasury::<Test>::get(project_id,USDT);
+		assert_eq!(pot,1);
 
 		// buy order storage should be cleared since payment is done
 		let buy_order_storage = BuyOrders::<Test>::get(0);
@@ -684,48 +697,57 @@ fn payment_is_processed_after_validator_threshold_reached() {
 		assert_eq!(order_storage_by_user.unwrap().into_inner(), expected_storage);
 	});
 }
+/*
+ #[test]
+ fn partial_fill_and_cancel_works() {
+ 	new_test_ext().execute_with(|| {
+ 		let asset_id = 0;
+ 		let seller = 1;
+ 		let buyer = 4;
+ 		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
 
-// #[test]
-// fn partial_fill_and_cancel_works() {
-// 	new_test_ext().execute_with(|| {
-// 		let asset_id = 0;
-// 		let seller = 1;
-// 		let buyer = 4;
-// 		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
+		let project_tokens_to_mint = 100;
 
-// 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
-// 		assert_ok!(Assets::mint(RuntimeOrigin::signed(seller), asset_id, 1, 100));
-// 		assert_eq!(Assets::balance(asset_id, seller), 100);
+ 		create_project_and_mint::<Test>(seller, project_tokens_to_mint, false);
+		//assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
+		//assert_ok!(Assets::mint(RuntimeOrigin::signed(seller), asset_id, 1, 100));
+		assert_eq!(Assets::balance(asset_id, seller), 100);
 
-// 		// set fee values
-// 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
-// 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+ 		// set fee values
+ 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
+ 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
 
-// 		// should be able to create a sell order
-// 		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 50, 10));
+		// configure limit to avoid failure
+		assert_ok!(Dex::force_set_open_order_allowed_limits(
+			RuntimeOrigin::root(),
+			UserLevel::KYCLevel1,
+			1000
+		));
+ 		// should be able to create a sell order
+ 		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 50, 10));
 
-// 		// user should be able to purchase
-// 		assert_ok!(Dex::create_buy_order(RuntimeOrigin::signed(buyer), 0, asset_id, 5, 100));
+		 assert_eq!(Assets::balance(asset_id, dex_account), 50);
+ 		// user should be able to purchase
+ 		assert_ok!(Dex::create_buy_order(RuntimeOrigin::signed(buyer), 0, asset_id, 5, 100));
 
-// 		// cancel sell order should return the remaining units
-// 		assert_ok!(Dex::cancel_sell_order(RuntimeOrigin::signed(seller), 0));
+ 		// cancel sell order should return the remaining units
+ 		assert_ok!(Dex::cancel_sell_order(RuntimeOrigin::signed(seller), 0));
 
-// 		// Balance should be returned correctly
-// 		assert_eq!(Assets::balance(asset_id, seller), 95);
-// 		assert_eq!(Assets::balance(asset_id, dex_account), 0);
+ 		// Balance should be returned correctly
+ 		assert_eq!(Assets::balance(asset_id, seller), 95);
+ 		assert_eq!(Assets::balance(asset_id, dex_account), 5);
+ 		assert_eq!(last_event(), Event::SellOrderCancelled { order_id: 0, seller }.into());
 
-// 		assert_eq!(last_event(), Event::SellOrderCancelled { order_id: 0, seller }.into());
-
-// 		// Token balance should be set correctly
-// 		// seller gets the price_per_unit
-// 		assert_eq!(Tokens::free_balance(USDT, &seller), 50);
-// 		// buyer spends price_per_unit + fees (50 + 5 + 10)
-// 		assert_eq!(Tokens::free_balance(USDT, &buyer), 35);
-// 		// pallet gets fees (5 + 10)
-// 		assert_eq!(Tokens::free_balance(USDT, &dex_account), 15);
-// 	});
-// }
-
+ 		// Token balance should be set correctly
+ 		// seller gets the price_per_unit
+ 		//assert_eq!(Tokens::free_balance(USDT, &seller), 50);
+ 		// buyer spends price_per_unit + fees (50 + 5 + 10)
+ 		//assert_eq!(Tokens::free_balance(USDT, &buyer), 35);
+ 		// pallet gets fees (5 + 10)
+ 		//assert_eq!(Tokens::free_balance(USDT, &dex_account), 15);
+ 	});
+}
+*/
 #[test]
 fn cannot_set_more_than_max_fee() {
 	new_test_ext().execute_with(|| {
@@ -972,6 +994,7 @@ fn buy_order_limits_should_work() {
 		// set fee values
 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// should be able to create a sell order
 		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 100, 10));
@@ -1038,6 +1061,7 @@ fn buy_order_limits_are_reset_correctly() {
 		// set fee values
 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// should be able to create a sell order
 		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 100, 10));
@@ -1106,6 +1130,7 @@ fn purchase_is_retired_if_payment_is_stripe() {
 		// set fee values
 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
 		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// configure limit to avoid failure
 		assert_ok!(Dex::force_set_open_order_allowed_limits(
@@ -1131,7 +1156,8 @@ fn purchase_is_retired_if_payment_is_stripe() {
 				RuntimeOrigin::signed(buyer),
 				buy_order_id,
 				chain_id,
-				vec![].try_into().unwrap(),
+				tx_proof.clone(),
+				USDT,
 				None
 			),
 			Error::<Test>::NotAuthorised
@@ -1143,6 +1169,7 @@ fn purchase_is_retired_if_payment_is_stripe() {
 			buy_order_id,
 			chain_id,
 			tx_proof.clone(),
+			USDT,
 			None
 		));
 
@@ -1173,6 +1200,7 @@ fn purchase_is_retired_if_payment_is_stripe() {
 				buy_order_id,
 				chain_id,
 				tx_proof.clone(),
+				USDT,
 				None
 			),
 			Error::<Test>::DuplicateValidation
@@ -1189,6 +1217,7 @@ fn purchase_is_retired_if_payment_is_stripe() {
 			buy_order_id,
 			chain_id,
 			tx_proof,
+			USDT,
 			None
 		));
 
@@ -1207,10 +1236,13 @@ fn purchase_is_retired_if_payment_is_stripe() {
 			}
 			.into()
 		);*/
-
+		let project_id = 0;
 		// seller receivable should be updated with the correct amount
 		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
-		assert_eq!(seller_receivables, 10);
+		// seller 9 treasury 1
+		assert_eq!(seller_receivables, 9);
+		let pot = Treasury::<Test>::get(project_id,USDT);
+		assert_eq!(pot,1);
 
 		// buy order storage should be cleared since payment is done
 		let buy_order_storage = BuyOrders::<Test>::get(0);

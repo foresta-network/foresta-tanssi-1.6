@@ -104,6 +104,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPaymentFee: Get<Percent>;
 
+		/// The maximum Royalty that can be set
+		#[pallet::constant]
+		type MaxRoyalty: Get<Percent>;
+
 		/// The maximum purchase fee that can be set
 		#[pallet::constant]
 		type MaxPurchaseFee: Get<CurrencyBalanceOf<Self>>;
@@ -161,6 +165,11 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn purchase_fees)]
 	pub type PurchaseFees<T: Config> = StorageValue<_, CurrencyBalanceOf<T>, ValueQuery>;
+
+	// Payment fees charged by dex
+	#[pallet::storage]
+	#[pallet::getter(fn royalty_percentage)]
+	pub type RoyaltyPercent<T: Config> = StorageValue<_, Percent, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn order_info)]
@@ -369,6 +378,8 @@ pub mod pallet {
 		ProjectNotFound,
 		/// Treasury Not Found
 		TreasuryNotFound,
+		/// CannotSetMoreThanMaxRoyalty
+		CannotSetMoreThanMaxRoyalty,
 	}
 
 	#[pallet::hooks]
@@ -705,6 +716,7 @@ pub mod pallet {
 			order_id: BuyOrderId,
 			chain_id: u32,
 			tx_proof: BoundedVec<u8, T::MaxTxHashLen>,
+			currency_id: CurrencyIdOf<T>,
 			retirement_reason: Option<sp_std::vec::Vec<u8>>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
@@ -753,16 +765,22 @@ pub mod pallet {
 							Expendable,
 						)?;
 
+
+						let amount_minus_fees = order
+									.total_amount
+									.checked_sub(&order.total_fee)
+									.ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+						let royalty = RoyaltyPercent::<T>::get().mul_ceil(amount_minus_fees);
 						// add amount record to the seller
 						SellerReceivables::<T>::try_mutate(
 							sell_order.owner.clone(),
 							|receivable| -> DispatchResult {
 								let current_receivables =
 									receivable.get_or_insert_with(Default::default);
-								let amount_to_seller = order
-									.total_amount
-									.checked_sub(&order.total_fee)
-									.ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+								let amount_to_seller = amount_minus_fees.checked_sub(&royalty)
+								.ok_or(Error::<T>::OrderUnitsOverflow)?;
 								let new_receivables = current_receivables
 									.checked_add(&amount_to_seller)
 									.ok_or(Error::<T>::OrderUnitsOverflow)?;
@@ -785,6 +803,11 @@ pub mod pallet {
 						pallet_carbon_credits::Pallet::<T>::asset_id_lookup(order.asset_id)
 								.ok_or(Error::<T>::AssetNotPermitted)?;
 
+						let mut pot = Self::get_pot(project_id,currency_id);
+
+						pot = pot.checked_add(&royalty).ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+						Treasury::<T>::insert(project_id,currency_id,pot);
 						Self::deposit_event(Event::BuyOrderFilled {
 							order_id,
 							sell_order_id: order.order_id,
@@ -1039,6 +1062,20 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Force set Royalty value
+		/// Can only be called by ForceOrigin
+		#[pallet::call_index(14)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_payment_fee())]
+		pub fn force_set_royalty(origin: OriginFor<T>, royalty_percent: Percent) -> DispatchResult {
+			<T as pallet::Config>::ForceOrigin::ensure_origin(origin)?;
+			ensure!(
+				royalty_percent <= T::MaxRoyalty::get(),
+				Error::<T>::CannotSetMoreThanMaxRoyalty
+			);
+			RoyaltyPercent::<T>::set(royalty_percent);
+			Ok(())
+		}
+
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1109,7 +1146,9 @@ pub mod pallet {
 
 			let account_id = Self::account_id();
 
-			let new_balance = balance - amount;
+			let new_balance = balance.checked_sub(&amount)
+			.ok_or(Error::<T>::ReceivableLessThanPayment)?;
+
 			T::Currency::transfer(currency_id,&account_id,&beneficiary,amount)?;
 			Treasury::<T>::insert(project_id,currency_id,new_balance);
 			Ok(())

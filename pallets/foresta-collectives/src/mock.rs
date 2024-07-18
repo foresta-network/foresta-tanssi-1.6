@@ -20,6 +20,8 @@ use sp_runtime::{
 use sp_std::convert::{TryFrom, TryInto};
 pub type AccountId = u64;
 pub const USDT: CurrencyId = CurrencyId::USDT;
+pub const USDC: CurrencyId = CurrencyId::USDC;
+pub const DOT: CurrencyId = CurrencyId::DOT;
 type Block = frame_system::mocking::MockBlock<Test>;
 use orml_traits::parameter_type_with_key;
 pub type BlockNumber = u32;
@@ -276,6 +278,7 @@ parameter_types! {
 	pub const MinUnitsToCreateSellOrder : u32 = 2;
 	pub const MinPricePerUnit : u32 = 1;
 	pub const MaxPaymentFee : Percent = Percent::from_percent(50);
+	pub const MaxRoyalty : Percent = Percent::from_percent(10);
 	pub const MaxPurchaseFee : u128 = 100u128;
 	#[derive(Clone, scale_info::TypeInfo)]
 	pub const MaxValidators : u32 = 10;
@@ -311,6 +314,7 @@ impl pallet_dex::Config for Test {
 	type MinUnitsToCreateSellOrder = MinUnitsToCreateSellOrder;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type MaxPaymentFee = MaxPaymentFee;
+	type MaxRoyalty = MaxRoyalty;
 	type MaxPurchaseFee = MaxPurchaseFee;
 	type MaxPayoutsToStore = MaxPayoutsToStore;
 	type MaxMembersPerCollective = MaxMembersC;

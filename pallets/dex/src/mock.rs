@@ -9,7 +9,7 @@ use frame_support::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_system::{EnsureRoot, EnsureSigned};
-use orml_traits::parameter_type_with_key;
+use orml_traits::{parameter_type_with_key,MultiCurrency};
 use primitives::{Amount, Balance, CarbonCreditsValidator, CurrencyId};
 use sp_core::{ConstU128, ConstU64, H256};
 use scale_info::TypeInfo;
@@ -217,6 +217,7 @@ parameter_types! {
 	pub const MinUnitsToCreateSellOrder : u32 = 2;
 	pub const MinPricePerUnit : u32 = 1;
 	pub const MaxPaymentFee : Percent = Percent::from_percent(50);
+	pub const MaxRoyalty : Percent = Percent::from_percent(10);
 	pub const MaxPurchaseFee : u128 = 100u128;
 	#[derive(Clone, scale_info::TypeInfo)]
 	pub const MaxValidators : u32 = 10;
@@ -252,6 +253,7 @@ impl pallet_dex::Config for Test {
 	type MinUnitsToCreateSellOrder = MinUnitsToCreateSellOrder;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type MaxPaymentFee = MaxPaymentFee;
+	type MaxRoyalty = MaxRoyalty;
 	type MaxPurchaseFee = MaxPurchaseFee;
 	type MaxPayoutsToStore = MaxPayoutsToStore;
 	type MaxMembersPerCollective = MaxMembersC;
@@ -263,7 +265,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_membership::GenesisConfig::<Test> {
-		members: sp_core::bounded_vec![1, 3, 10],
+		members: sp_core::bounded_vec![1, 3, 4, 10],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
