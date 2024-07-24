@@ -54,7 +54,6 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::{OriginFor, *};
 	use orml_traits::MultiCurrency;
-	use primitives::CarbonCreditsValidator;
 	use sp_runtime::{
 		traits::{AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedSub, One, Zero},
 		Percent, Saturating,

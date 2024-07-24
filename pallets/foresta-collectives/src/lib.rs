@@ -25,7 +25,6 @@ pub mod pallet {
 	use frame_support::traits::Bounded;
 	use scale_info::TypeInfo;
 	use codec::{FullCodec, MaxEncodedLen, EncodeLike};
-	use primitives::DexFunctions;
 	use orml_traits::MultiCurrency;
 
 	type CollectiveId = u32;
@@ -37,7 +36,7 @@ pub mod pallet {
 	<<T as pallet_dex::Config>::Currency as MultiCurrency<<T as frame_system::Config>::AccountId>>::CurrencyId;
 	
 	use sp_runtime::{
-		traits::{Bounded as ArithBounded, One, MaybeSerializeDeserialize, CheckedAdd,
+		traits::{ One, MaybeSerializeDeserialize, CheckedAdd,
 			 AccountIdConversion, AtLeast32BitUnsigned, Saturating}
 		,ArithmeticError, };
 	use sp_std::{fmt::Debug,cmp::{Eq, PartialEq}};

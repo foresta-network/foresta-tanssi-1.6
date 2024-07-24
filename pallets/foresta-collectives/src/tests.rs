@@ -153,15 +153,15 @@ pub fn create_project<T: Config>(
 	batch: bool,
 ) {
 	let mut creation_params = get_default_creation_params::<Test>();
-	let project_id = 0;
-	let group_id = 0;
+	let _project_id = 0;
+	let _group_id = 0;
 	if batch {
 		// replace the default with mutiple batches
 		let created_batch_list = get_multiple_batch_group::<Test>();
 		creation_params.batch_groups = created_batch_list;
 	}
 
-	let authorised_account = 10;
+	let _authorised_account = 10;
 
 	assert_ok!(CarbonCredits::create(
 		RawOrigin::Signed(originator_account).into(),
@@ -410,8 +410,8 @@ fn it_works_for_create_proposal() {
 		assert_eq!(last_event(),ForestaCollectivesEvent::CollectiveCreated { uid: 0 }.into());
 		let member = 2;
 		let member2 = 3;
-		let project_id = 0;
-		let group_id = 0;
+		let _project_id = 0;
+		let _group_id = 0;
 		let collective_id = 0;
 		let vote_id = 0;
 
@@ -486,7 +486,7 @@ fn it_works_for_create_proposal() {
 
 		//assert_eq!(Balances::free_balance(42), 100);
 
-		let x = [0u8; 32];
+		let _x = [0u8; 32];
 		
 
 		//assert_eq!(last_event(),ForestaCollectivesEvent::CallScheduled { schedule_task_id: x }.into());

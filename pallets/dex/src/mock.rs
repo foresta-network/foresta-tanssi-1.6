@@ -2,15 +2,14 @@
 // Copyright (C) 2024 Foresta.
 // This code is licensed under MIT license (see LICENSE.txt for details)
 use frame_support::{
-	pallet_prelude::DispatchResult,
 	parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU16, ConstU32, Contains, Nothing},
 	PalletId,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_system::{EnsureRoot, EnsureSigned};
-use orml_traits::{parameter_type_with_key,MultiCurrency};
-use primitives::{Amount, Balance, CarbonCreditsValidator, CurrencyId};
+use orml_traits::{parameter_type_with_key};
+use primitives::{Amount, Balance, CurrencyId};
 use sp_core::{ConstU128, ConstU64, H256};
 use scale_info::TypeInfo;
 use sp_runtime::{

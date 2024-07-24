@@ -13,7 +13,6 @@ use pallet_carbon_credits::{
 	BatchGroupListOf, BatchGroupOf, BatchOf, ProjectCreateParams, RegistryListOf, SDGTypesListOf,
 };
 use primitives::{Batch, RegistryDetails, RegistryName, Royalty, SDGDetails, SdgType, CurrencyId};
-use orml_traits::MultiCurrency;
 
 /// helper function to add authorised account
 fn add_validator_account(validator_account: u64) {
@@ -876,6 +875,18 @@ fn force_set_seller_payout_authority_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Dex::force_set_seller_payout_authority(RuntimeOrigin::root(), 5));
 		assert_eq!(crate::SellerPayoutAuthority::<Test>::get(), Some(5));
+	});
+}
+
+#[test]
+fn cannot_set_more_than_max_royalty() {
+	new_test_ext().execute_with(|| {
+		// set fee values
+		assert_noop!(
+			Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(15)),
+			Error::<Test>::CannotSetMoreThanMaxRoyalty
+		);
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 	});
 }
 
