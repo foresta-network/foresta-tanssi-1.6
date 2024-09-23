@@ -112,6 +112,7 @@ pallet-kyc = { workspace = true }
 pallet-carbon-credits = { workspace = true }
 pallet-carbon-credits-pool = { workspace = true }
 pallet-dex = { workspace = true }
+pallet-foresta-bounties = { workspace = true }
 pallet-foresta-collectives = { workspace = true }
 orml-tokens = { workspace = true }
 orml-traits = { workspace = true }

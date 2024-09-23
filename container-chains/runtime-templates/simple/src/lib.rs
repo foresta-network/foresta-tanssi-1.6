@@ -904,6 +904,22 @@ impl pallet_foresta_collectives::Config for Runtime {
 }
 
 parameter_types! {
+    pub const ForestaBountiesPalletId: PalletId = PalletId(*b"for/bont");
+    pub const MaxDescriptionLength: u32 = 512;
+}
+
+impl pallet_foresta_bounties::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_foresta_bounties::weights::SubstrateWeight<Runtime>;
+    type PalletId = ForestaBountiesPalletId;
+    type Currency = Tokens;
+	type CurrencyBalance = u128;
+    type KYCProvider = KYCPallet;
+    type MaxBountyDescription = MaxDescriptionLength;
+    type ForceOrigin = EnsureRoot<AccountId>;
+}
+
+parameter_types! {
 	pub const DepositPerItem: Balance = deposit(1, 0);
 	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
@@ -1072,6 +1088,7 @@ construct_runtime!(
 
         // Governance
         ForestaCollectives: pallet_foresta_collectives = 91,
+        ForestaBounties: pallet_foresta_bounties = 92,
 
         RootTesting: pallet_root_testing = 100,
         AsyncBacking: pallet_async_backing::{Pallet, Storage} = 110,

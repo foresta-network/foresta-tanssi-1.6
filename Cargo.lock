@@ -2276,6 +2276,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-dex",
  "pallet-foreign-asset-creator",
+ "pallet-foresta-bounties",
  "pallet-foresta-collectives",
  "pallet-insecure-randomness-collective-flip",
  "pallet-kyc",
@@ -9453,6 +9454,33 @@ dependencies = [
  "sp-runtime 24.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
  "sp-std 8.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
  "staging-xcm 1.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+]
+
+[[package]]
+name = "pallet-foresta-bounties"
+version = "4.0.0-dev"
+dependencies = [
+ "foresta-primitives",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-assets",
+ "pallet-balances 4.0.0-dev (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+ "pallet-carbon-credits",
+ "pallet-dex",
+ "pallet-kyc",
+ "pallet-membership",
+ "pallet-timestamp",
+ "pallet-uniques",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 21.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+ "sp-io 23.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
+ "sp-std 8.0.0 (git+https://github.com/moondance-labs/polkadot-sdk?branch=tanssi-polkadot-v1.6.0)",
 ]
 
 [[package]]

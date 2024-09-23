@@ -302,6 +302,7 @@ fc-storage = { git = "https://github.com/moondance-labs/frontier", branch = "tan
 pallet-carbon-credits = { path = "pallets/carbon-credits", default-features = false }
 pallet-carbon-credits-pool = { path = "pallets/carbon-credits-pool", default-features = false }
 pallet-dex = { path = "pallets/dex", default-features = false }
+pallet-foresta-bounties = { path = "pallets/foresta-bounties", default-features = false }
 pallet-foresta-collectives = { path = "pallets/foresta-collectives", default-features = false }
 pallet-kyc = { path = "pallets/kyc", default-features = false }
 orml-tokens = {path = "pallets/orml-tokens",  version = "0.4.1-dev", default-features = false}
