@@ -96,6 +96,7 @@ pub mod pallet {
 	pub struct Bounty<T:Config> {
 		pub currency_id: CurrencyIdOf<T>,
         pub value: CurrencyBalanceOf<T>,
+		pub project_id: ProjectIdOf<T>,
 		pub metadata: BoundedVec<u8,T::MaxBountyDescription>,
 		pub status: BountyStatus,
 		pub recipient: Option<T::AccountId>,
@@ -109,7 +110,9 @@ pub mod pallet {
 		InActive,
 		Proposed,
 		Active,
+		Cancelled,
 		Awarded,
+		Submitted,
 		Fulfilled,
 	}
 
@@ -139,6 +142,7 @@ pub mod pallet {
 		type Currency: MultiCurrency<Self::AccountId, Balance = <Self as pallet::Config>::CurrencyBalance>;
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type MaxBountyDescription: Get<u32>;
+		type MaxBountySubmission: Get<u32>;
 		type MaxConcurrentPayouts: Get<u32>;
 	}
 
@@ -171,6 +175,16 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn get_submission_hash)]
+	pub type Submissions<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		BountyId,
+		BoundedVec<u8, T::MaxBountySubmission>,
+		ValueQuery,
+	>;
+
 	
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -188,13 +202,20 @@ pub mod pallet {
 			currency_id: CurrencyIdOf<T>,
 			amount: CurrencyBalanceOf<T>,
 		},
-		BountyAwarded {
-			bounty_id: BountyId,
-			unlock: BlockNumberFor<T>,
-		},
 		BountyActivated {
 			bounty_id: BountyId,
 			recipient: T::AccountId,
+		},
+		BountyCancelled {
+			bounty_id: BountyId,
+		},
+		BountySubmitted {
+			bounty_id: BountyId,
+			who: T::AccountId,
+		},
+		BountyAwarded {
+			bounty_id: BountyId,
+			unlock: BlockNumberFor<T>,
 		},
 
 	}
@@ -219,6 +240,34 @@ pub mod pallet {
 		InActiveBounty,
 		/// Max Concurrent Payouts Exceeded
 		MaxConcurrentPayoutsExceeded,
+		/// NotTheRecipient
+		NotTheRecipient,
+		/// Bounty Expired
+		BountyExpired,
+		/// Bounty Not Awarded
+		BountyNotAwarded,
+		/// Bounty Not Submitted
+		BountyNotSubmitted,
+		/// BountyCannotBeCancelled
+		BountyCannotBeCancelled,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Weight {
+			let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+			let approval = PendingPayouts::<T>::take(n);
+
+			for v_id in approval.iter() {
+				weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+
+				let _ = Self::do_make_payment(*v_id);
+
+			}
+
+			weight
+		}
 	}
 
 	
@@ -274,6 +323,7 @@ pub mod pallet {
 			let bounty = Bounty::<T> {
 				currency_id: currency_id,
         	    value: amount,
+				project_id: project_id,
 				metadata: metadata,
 				status: BountyStatus::Proposed,
 				recipient: None,
@@ -292,13 +342,13 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
-		pub fn activate_bounty(origin: OriginFor<T>, bounty_id: BountyId, project_id: ProjectIdOf<T>,
+		pub fn activate_bounty(origin: OriginFor<T>, bounty_id: BountyId,
 		recipient: T::AccountId, duration: BlockNumberFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(Self::check_project_admin(who.clone(),project_id),Error::<T>::NotTheProjectAdmin);
-			
 			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
 
+			ensure!(Self::check_project_admin(who.clone(),bounty.project_id),Error::<T>::NotTheProjectAdmin);
+			
 			ensure!(bounty.status == BountyStatus::Proposed,Error::<T>::BountyCannotBeAwarded);
 			
 			let now = frame_system::Pallet::<T>::block_number();
@@ -313,13 +363,50 @@ pub mod pallet {
 
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
-		pub fn award_bounty(origin: OriginFor<T>, bounty_id: BountyId, project_id: ProjectIdOf<T>,
+		pub fn cancel_bounty(origin: OriginFor<T>, bounty_id: BountyId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
+
+			ensure!(Self::check_project_admin(who.clone(),bounty.project_id),Error::<T>::NotTheProjectAdmin);
+			
+			ensure!(bounty.status == BountyStatus::Proposed || bounty.status == BountyStatus::Active,Error::<T>::BountyCannotBeCancelled);
+
+			bounty.status = BountyStatus::Cancelled;
+
+			Bounties::<T>::insert(bounty_id,&bounty);
+			Self::deposit_event(Event::BountyCancelled{ bounty_id });
+
+			Ok(())
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		pub fn submit_bounty(origin: OriginFor<T>, bounty_id: BountyId,
+		submission_hash: BoundedVec<u8,T::MaxBountySubmission>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let now = frame_system::Pallet::<T>::block_number();
+			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
+			ensure!(now < bounty.end.unwrap(),Error::<T>::BountyExpired);
+			ensure!(bounty.status == BountyStatus::Active,Error::<T>::BountyNotAwarded);
+			ensure!(bounty.recipient.clone().unwrap() == who.clone(), Error::<T>::NotTheRecipient);
+
+			bounty.status = BountyStatus::Submitted;
+
+			Bounties::<T>::insert(bounty_id,&bounty);
+			Submissions::<T>::insert(bounty_id,submission_hash);
+			Self::deposit_event(Event::BountySubmitted{ bounty_id, who });
+			Ok(())
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		pub fn award_bounty(origin: OriginFor<T>, bounty_id: BountyId,
 		unlock_duration: BlockNumberFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(Self::check_project_admin(who.clone(),project_id),Error::<T>::NotTheProjectAdmin);
-			
 			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
-			ensure!(bounty.status == BountyStatus::Active,Error::<T>::InActiveBounty);
+
+			ensure!(Self::check_project_admin(who.clone(),bounty.project_id),Error::<T>::NotTheProjectAdmin);
+			ensure!(bounty.status == BountyStatus::Submitted,Error::<T>::BountyNotSubmitted);
 			
 			let now = frame_system::Pallet::<T>::block_number();
 			let unlock = now + unlock_duration;
@@ -335,6 +422,7 @@ pub mod pallet {
 			Self::deposit_event(Event::BountyAwarded{ bounty_id, unlock });
 			Ok(())
 		}
+
 	}
 
 	impl<T:Config> Pallet<T> {
@@ -352,6 +440,15 @@ pub mod pallet {
 				None => res = false,
 			}
 			res
+		}
+
+		pub fn do_make_payment(bounty_id: BountyId) -> DispatchResult {
+			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
+			ensure!(bounty.status == BountyStatus::Awarded,Error::<T>::BountyNotAwarded);
+
+			pallet_dex::Pallet::<T>::do_spend_funds(bounty.project_id, bounty.recipient.unwrap(),
+				bounty.currency_id, bounty.value)?;
+			Ok(())
 		}
 	}
 }

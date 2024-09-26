@@ -906,6 +906,7 @@ impl pallet_foresta_collectives::Config for Runtime {
 parameter_types! {
     pub const ForestaBountiesPalletId: PalletId = PalletId(*b"for/bont");
     pub const MaxDescriptionLength: u32 = 512;
+    pub const MaxSubmissionLength: u32 = 1024;
     pub const MaxPayoutsPerBlock: u32 = 50;
 }
 
@@ -917,6 +918,7 @@ impl pallet_foresta_bounties::Config for Runtime {
 	type CurrencyBalance = u128;
     type KYCProvider = KYCPallet;
     type MaxBountyDescription = MaxDescriptionLength;
+    type MaxBountySubmission = MaxSubmissionLength;
     type MaxConcurrentPayouts = MaxPayoutsPerBlock;
     type ForceOrigin = EnsureRoot<AccountId>;
 }
