@@ -472,6 +472,7 @@ fn validate_buy_order_should_work() {
 		let buyer = 4;
 		let validator = 10;
 		let buy_order_id = 0;
+		let project_id = 0;
 
 		let project_tokens_to_mint = 100;
 
@@ -479,6 +480,7 @@ fn validate_buy_order_should_work() {
 		//assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
 		//assert_ok!(Assets::mint(RuntimeOrigin::signed(seller), asset_id, 1, 100));
 		assert_eq!(Assets::balance(asset_id, seller), 100);
+		assert_eq!(Assets::balance(asset_id, buyer), 0);
 
 		// set fee values
 		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
@@ -538,6 +540,10 @@ fn validate_buy_order_should_work() {
 		assert_eq!(payment_info.tx_proof, tx_proof);
 		assert_eq!(payment_info.validators.len(), 1);
 		assert_eq!(payment_info.validators.first().unwrap(), &validator);
+
+		assert_eq!(Dex::get_pot(project_id,CurrencyId::USDT),0);
+		assert_eq!(Assets::balance(asset_id, seller), 95);
+		assert_eq!(Assets::balance(asset_id, buyer), 0);
 
 		assert_eq!(
 			last_event(),

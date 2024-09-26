@@ -260,6 +260,7 @@ parameter_types! {
 parameter_types! {
 	pub const ForestaBountiesPalletId: PalletId = PalletId(*b"forest/b");
 	pub const MaxDescriptionLength : u32 = 100;
+	pub const MaxPayoutsPerBlock : u32 = 100;
   }
 
 impl pallet_foresta_bounties::Config for Test {
@@ -270,6 +271,7 @@ impl pallet_foresta_bounties::Config for Test {
 	type CurrencyBalance = u128;
     type KYCProvider = KYCMembership;
 	type MaxBountyDescription = MaxDescriptionLength;
+	type MaxConcurrentPayouts = MaxPayoutsPerBlock;
     type ForceOrigin = frame_system::EnsureRoot<u64>;
 }
 

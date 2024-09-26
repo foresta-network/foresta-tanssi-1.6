@@ -99,6 +99,8 @@ pub mod pallet {
 		pub metadata: BoundedVec<u8,T::MaxBountyDescription>,
 		pub status: BountyStatus,
 		pub recipient: Option<T::AccountId>,
+		pub end: Option<BlockNumberFor<T>>,
+		pub unlock: Option<BlockNumberFor<T>>,
 	}
 
 	#[derive(Clone, Encode, Decode, PartialEq, Debug,MaxEncodedLen, TypeInfo, Eq, Copy)]
@@ -107,6 +109,7 @@ pub mod pallet {
 		InActive,
 		Proposed,
 		Active,
+		Awarded,
 		Fulfilled,
 	}
 
@@ -136,6 +139,7 @@ pub mod pallet {
 		type Currency: MultiCurrency<Self::AccountId, Balance = <Self as pallet::Config>::CurrencyBalance>;
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type MaxBountyDescription: Get<u32>;
+		type MaxConcurrentPayouts: Get<u32>;
 	}
 
 
@@ -157,6 +161,16 @@ pub mod pallet {
 	#[pallet::getter(fn bounties_count)]
 	pub type BountiesCount<T: Config> = StorageValue<_, BountyId, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn get_pending_payouts)]
+	pub type PendingPayouts<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		BlockNumberFor<T>,
+		BoundedVec<BountyId, T::MaxConcurrentPayouts>,
+		ValueQuery,
+	>;
+
 	
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -173,7 +187,16 @@ pub mod pallet {
 			uid: BountyId,
 			currency_id: CurrencyIdOf<T>,
 			amount: CurrencyBalanceOf<T>,
-		}
+		},
+		BountyAwarded {
+			bounty_id: BountyId,
+			unlock: BlockNumberFor<T>,
+		},
+		BountyActivated {
+			bounty_id: BountyId,
+			recipient: T::AccountId,
+		},
+
 	}
 
 		#[pallet::error]
@@ -184,6 +207,18 @@ pub mod pallet {
 		StorageOverflow,
 		/// Insufficient Treasury Balance
 		InsufficientTreasuryBalance,
+		/// Project Not Found
+		ProjectNotFound,
+		/// Not The Project Admin
+		NotTheProjectAdmin,
+		/// Bounty Does Not Exist
+		BountyDoesNotExist,
+		/// Bounty Cannot Be Awarded
+		BountyCannotBeAwarded,
+		/// Inactive Bounty
+		InActiveBounty,
+		/// Max Concurrent Payouts Exceeded
+		MaxConcurrentPayoutsExceeded,
 	}
 
 	
@@ -242,6 +277,8 @@ pub mod pallet {
 				metadata: metadata,
 				status: BountyStatus::Proposed,
 				recipient: None,
+				end: None,
+				unlock: None,
 			};
 
 			let uid = Self::bounties_count();
@@ -252,6 +289,52 @@ pub mod pallet {
 			Self::deposit_event(Event::BountyCreated{ uid, currency_id, amount });
 			Ok(())
 		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		pub fn activate_bounty(origin: OriginFor<T>, bounty_id: BountyId, project_id: ProjectIdOf<T>,
+		recipient: T::AccountId, duration: BlockNumberFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Self::check_project_admin(who.clone(),project_id),Error::<T>::NotTheProjectAdmin);
+			
+			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
+
+			ensure!(bounty.status == BountyStatus::Proposed,Error::<T>::BountyCannotBeAwarded);
+			
+			let now = frame_system::Pallet::<T>::block_number();
+			bounty.end = Some(now + duration);
+			bounty.recipient = Some(recipient.clone());
+			bounty.status = BountyStatus::Active;
+
+			Bounties::<T>::insert(bounty_id,&bounty);
+			Self::deposit_event(Event::BountyActivated{ bounty_id, recipient });
+			Ok(())
+		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		pub fn award_bounty(origin: OriginFor<T>, bounty_id: BountyId, project_id: ProjectIdOf<T>,
+		unlock_duration: BlockNumberFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Self::check_project_admin(who.clone(),project_id),Error::<T>::NotTheProjectAdmin);
+			
+			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
+			ensure!(bounty.status == BountyStatus::Active,Error::<T>::InActiveBounty);
+			
+			let now = frame_system::Pallet::<T>::block_number();
+			let unlock = now + unlock_duration;
+			bounty.unlock = Some(unlock);
+			bounty.status = BountyStatus::Awarded;
+
+			Bounties::<T>::insert(bounty_id,&bounty);
+			PendingPayouts::<T>::try_mutate(unlock, |payouts| {
+				payouts.try_push(bounty_id).map_err(|_| Error::<T>::MaxConcurrentPayoutsExceeded)?;
+				Ok::<(),DispatchError>(())
+			})?; 
+
+			Self::deposit_event(Event::BountyAwarded{ bounty_id, unlock });
+			Ok(())
+		}
 	}
 
 	impl<T:Config> Pallet<T> {
@@ -259,6 +342,16 @@ pub mod pallet {
 		currency_id: CurrencyIdOf<T>, amount: CurrencyBalanceOf<T>) -> bool {
 			let balance = pallet_dex::Pallet::<T>::get_pot(project_id,currency_id);
 			balance > amount
+		}
+
+		pub fn check_project_admin(who: T::AccountId, project_id: ProjectIdOf<T>) -> bool {
+			let project_details: Option<pallet_carbon_credits::ProjectDetail<T>> = pallet_carbon_credits::Pallet::get_project_details(project_id);
+			let mut res = false;
+			match project_details {
+				Some(x) => res = x.originator == who,
+				None => res = false,
+			}
+			res
 		}
 	}
 }
