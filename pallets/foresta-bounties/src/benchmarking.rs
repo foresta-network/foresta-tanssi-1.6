@@ -6,29 +6,19 @@ use super::*;
 use crate::Pallet as Template;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
+use sp_runtime::traits::BlockNumber;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn do_something() {
-		let value = 100u32;
-		let caller: T::AccountId = whitelisted_caller();
+	fn force_set_unlock_duration() {
+		let duration = 1000u32.into();
 		#[extrinsic_call]
-		do_something(RawOrigin::Signed(caller), value);
+		force_set_unlock_duration(RawOrigin::Root,duration);
 
-		assert_eq!(Something::<T>::get(), Some(value));
-	}
-
-	#[benchmark]
-	fn cause_error() {
-		Something::<T>::put(100u32);
-		let caller: T::AccountId = whitelisted_caller();
-		#[extrinsic_call]
-		cause_error(RawOrigin::Signed(caller));
-
-		assert_eq!(Something::<T>::get(), Some(101u32));
+		assert_eq!(UnlockDuration::<T>::get(), duration);
 	}
 
 	impl_benchmark_test_suite!(Template, crate::mock::new_test_ext(), crate::mock::Test);

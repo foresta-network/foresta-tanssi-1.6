@@ -158,6 +158,8 @@ std = [
 	"pallet-balances/std",
 	"pallet-carbon-credits/std",
 	"pallet-carbon-credits-pool/std",
+	"pallet-foresta-collectives/std",
+	"pallet-foresta-bounties/std",
 	"pallet-cc-authorities-noting/std",
 	"pallet-contracts/std",
 	"pallet-dex/std",
@@ -256,6 +258,8 @@ runtime-benchmarks = [
 	"staging-xcm-builder/runtime-benchmarks",
 	"staging-xcm-executor/runtime-benchmarks",
 	"xcm-primitives/runtime-benchmarks",
+	"pallet-foresta-collectives/runtime-benchmarks",
+	"pallet-foresta-bounties/runtime-benchmarks",
 ]
 
 try-runtime = [

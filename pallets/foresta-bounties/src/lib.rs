@@ -152,6 +152,10 @@ pub mod pallet {
 	pub type Something<T> = StorageValue<_, u32>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn get_unlock_duration)]
+	pub type UnlockDuration<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn get_bounty)]
 	pub(super) type Bounties<T: Config> = StorageMap<
 		_,
@@ -162,7 +166,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn bounties_count)]
+	#[pallet::getter(fn get_bounties_count)]
 	pub type BountiesCount<T: Config> = StorageValue<_, BountyId, ValueQuery>;
 
 	#[pallet::storage]
@@ -273,46 +277,9 @@ pub mod pallet {
 	
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		
+
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			let who = ensure_signed(origin)?;
-
-			// Update storage.
-			Something::<T>::put(something);
-
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored { something, who });
-
-			// Return a successful `DispatchResult`
-			Ok(())
-		}
-
-	
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::cause_error())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-			// Read a value from storage.
-			match Something::<T>::get() {
-				// Return an error if the value has not been set.
-				None => Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					// Increment the value read from storage. This will cause an error in the event
-					// of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
-					Something::<T>::put(new);
-					Ok(())
-				},
-			}
-		}
-
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_unlock_duration())]
 		pub fn create_bounty(origin: OriginFor<T>, project_id: ProjectIdOf<T>,
 		currency_id: CurrencyIdOf<T>, amount: CurrencyBalanceOf<T>, 
 		metadata: BoundedVec<u8,T::MaxBountyDescription>) -> DispatchResult {
@@ -331,7 +298,7 @@ pub mod pallet {
 				unlock: None,
 			};
 
-			let uid = Self::bounties_count();
+			let uid = Self::get_bounties_count();
 			let uid2 = uid.checked_add(1u32.into()).ok_or(ArithmeticError::Overflow)?;
 
 			Bounties::<T>::insert(uid,&bounty);
@@ -340,8 +307,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(3)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_unlock_duration())]
 		pub fn activate_bounty(origin: OriginFor<T>, bounty_id: BountyId,
 		recipient: T::AccountId, duration: BlockNumberFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -361,8 +328,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(4)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		#[pallet::call_index(2)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_unlock_duration())]
 		pub fn cancel_bounty(origin: OriginFor<T>, bounty_id: BountyId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
@@ -379,8 +346,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(5)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_unlock_duration())]
 		pub fn submit_bounty(origin: OriginFor<T>, bounty_id: BountyId,
 		submission_hash: BoundedVec<u8,T::MaxBountySubmission>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -398,10 +365,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(6)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::do_something())]
-		pub fn award_bounty(origin: OriginFor<T>, bounty_id: BountyId,
-		unlock_duration: BlockNumberFor<T>) -> DispatchResult {
+		#[pallet::call_index(4)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_unlock_duration())]
+		pub fn award_bounty(origin: OriginFor<T>, bounty_id: BountyId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut bounty = Bounties::<T>::get(bounty_id).ok_or(Error::<T>::BountyDoesNotExist).unwrap();
 
@@ -409,6 +375,7 @@ pub mod pallet {
 			ensure!(bounty.status == BountyStatus::Submitted,Error::<T>::BountyNotSubmitted);
 			
 			let now = frame_system::Pallet::<T>::block_number();
+			let unlock_duration = UnlockDuration::<T>::get();
 			let unlock = now + unlock_duration;
 			bounty.unlock = Some(unlock);
 			bounty.status = BountyStatus::Awarded;
@@ -420,6 +387,16 @@ pub mod pallet {
 			})?; 
 
 			Self::deposit_event(Event::BountyAwarded{ bounty_id, unlock });
+			Ok(())
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::force_set_unlock_duration())]
+		pub fn force_set_unlock_duration(origin: OriginFor<T>,unlock_duration: BlockNumberFor<T>) -> DispatchResult {
+			<T as pallet::Config>::ForceOrigin::ensure_origin(origin)?;
+
+			UnlockDuration::<T>::set(unlock_duration);
+
 			Ok(())
 		}
 

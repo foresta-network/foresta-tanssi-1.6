@@ -1126,6 +1126,8 @@ mod benches {
         [pallet_foreign_asset_creator, ForeignAssetsCreator]
         [pallet_asset_rate, AssetRate]
         [pallet_xcm_executor_utils, XcmExecutorUtils]
+        [pallet_foresta_collectives, ForestaCollectives]
+        [pallet_foresta_bounties, ForestaBounties]
     );
 }
 

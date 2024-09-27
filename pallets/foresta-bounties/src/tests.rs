@@ -1,27 +1,18 @@
-use crate::{mock::*, Error, Event, Something};
+use crate::{mock::*, Error, Event, Something, UnlockDuration};
 use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
 
 #[test]
-fn it_works_for_default_value() {
+fn it_works_for_force_set_unlock_duration() {
 	new_test_ext().execute_with(|| {
 		// Go past genesis block so events get deposited
 		System::set_block_number(1);
-		// Dispatch a signed extrinsic.
-		assert_ok!(ForestaBounties::do_something(RuntimeOrigin::signed(1), 42));
-		// Read pallet storage and assert an expected result.
-		assert_eq!(Something::<Test>::get(), Some(42));
-		// Assert that the correct event was deposited
-		System::assert_last_event(Event::SomethingStored { something: 42, who: 1 }.into());
-	});
-}
+		
+		assert_eq!(UnlockDuration::<Test>::get(), 0);
 
-#[test]
-fn correct_error_for_none_value() {
-	new_test_ext().execute_with(|| {
-		// Ensure the expected error is thrown when no value is present.
-		assert_noop!(
-			ForestaBounties::cause_error(RuntimeOrigin::signed(1)),
-			Error::<Test>::NoneValue
-		);
+		assert_ok!(ForestaBounties::force_set_unlock_duration(RawOrigin::Root.into(),1000));
+
+		assert_eq!(UnlockDuration::<Test>::get(), 1000);
+		
 	});
 }

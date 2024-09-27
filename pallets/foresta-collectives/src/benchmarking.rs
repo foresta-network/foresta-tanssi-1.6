@@ -18,7 +18,7 @@ benchmarks! {
 	}
 	add_collective {
 		let manager : T::AccountId = account("account_id", 0, 0);
-		let collective_id : T::CollectiveId = 0_u32.into();
+		let collective_id : u32 = 0_u32.into();
 	}: _(RawOrigin::Root, "Collective1".as_bytes().to_vec().try_into().unwrap(),
 	vec![manager].try_into().unwrap(),"Coll1Hash".as_bytes().to_vec().try_into().unwrap())
 	verify {
@@ -40,11 +40,11 @@ benchmarks! {
 */
 	add_member {
 		let manager : T::AccountId = account("account_id", 0, 1);
-		let collective_id : T::CollectiveId = 0_u32.into();
+		let collective_id : u32 = 0_u32.into();
 		let member : T::AccountId = account("account_id", 0, 0);
 		let _ = ForestaCollectives::<T>::add_collective(RawOrigin::Root.into(), "Collective1".as_bytes().to_vec().try_into().unwrap(),
 		vec![manager.clone()].try_into().unwrap(),"Coll1Hash".as_bytes().to_vec().try_into().unwrap());
-	}: _(RawOrigin::Signed(manager.clone()),collective_id, member)
+	}: _(RawOrigin::Signed(manager.clone()),collective_id, member,"ProfileHash".as_bytes().to_vec().try_into().unwrap())
 	verify {
 		assert_eq!(MembersCount::<T>::get(collective_id),2_u32);
 	}
