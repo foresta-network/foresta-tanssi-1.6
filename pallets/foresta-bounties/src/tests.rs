@@ -407,3 +407,210 @@ fn it_works_for_validate_bounty() {
 		assert_eq!(activated_bounty.status,BountyStatus::Active);
 	});
 }
+
+#[test]
+fn it_works_for_create_and_cancel_bounty() {
+	new_test_ext().execute_with(|| {
+		// Go past genesis block so events get deposited
+		System::set_block_number(1);
+
+		let project_id = 0;
+		let admin = 1;
+		let bounty_id = 0;
+
+		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
+
+		init_project_and_treasury::<Test>();
+
+		//create bounty
+
+		let metadata = "Bounty1".as_bytes().to_vec().try_into().unwrap();
+
+		assert_ok!(ForestaBounties::create_bounty(RawOrigin::Root.into(),project_id,USDT,50,
+		metadata));
+
+		
+		let bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(bounty.status,BountyStatus::Proposed);	
+
+		run_to_block(100);
+
+		// Project admin cancels bounty
+		
+		assert_ok!(ForestaBounties::cancel_bounty(RawOrigin::Signed(admin).into(),bounty_id));
+
+		let cancelled_bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(cancelled_bounty.status,BountyStatus::Cancelled);
+	});
+}
+
+#[test]
+fn it_works_for_create_validate_and_cancel_bounty() {
+	new_test_ext().execute_with(|| {
+		// Go past genesis block so events get deposited
+		System::set_block_number(1);
+
+		let project_id = 0;
+		let admin = 1;
+		let recipient = 2;
+		let bounty_id = 0;
+		let block_duration = 1000u64;
+
+		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
+
+		init_project_and_treasury::<Test>();
+
+		//create bounty
+
+		let metadata = "Bounty1".as_bytes().to_vec().try_into().unwrap();
+
+		assert_ok!(ForestaBounties::create_bounty(RawOrigin::Root.into(),project_id,USDT,50,
+		metadata));
+
+		
+		let bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(bounty.status,BountyStatus::Proposed);
+
+		// Project admin activates bounty
+
+		run_to_block(100);
+		
+		assert_ok!(ForestaBounties::activate_bounty(RawOrigin::Signed(admin).into(),bounty_id,recipient,block_duration));
+
+		let activated_bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(activated_bounty.status,BountyStatus::Active);
+
+		// Project admin cancels bounty
+
+		run_to_block(200);
+
+		assert_ok!(ForestaBounties::cancel_bounty(RawOrigin::Signed(admin).into(),bounty_id));
+
+		let cancelled_bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(cancelled_bounty.status,BountyStatus::Cancelled);
+	});
+}
+
+#[test]
+fn it_works_for_recipient_submits_bounty() {
+	new_test_ext().execute_with(|| {
+		// Go past genesis block so events get deposited
+		System::set_block_number(1);
+
+		let project_id = 0;
+		let admin = 1;
+		let recipient = 2;
+		let bounty_id = 0;
+		let block_duration = 1000u64;
+
+		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
+
+		init_project_and_treasury::<Test>();
+
+		//create bounty
+
+		let metadata = "Bounty1".as_bytes().to_vec().try_into().unwrap();
+
+		assert_ok!(ForestaBounties::create_bounty(RawOrigin::Root.into(),project_id,USDT,50,
+		metadata));
+
+		
+		let bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(bounty.status,BountyStatus::Proposed);
+
+		// Project admin activates bounty
+
+		run_to_block(100);
+		
+		assert_ok!(ForestaBounties::activate_bounty(RawOrigin::Signed(admin).into(),bounty_id,recipient,block_duration));
+
+		let activated_bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(activated_bounty.status,BountyStatus::Active);
+
+		// Recipient submits bounty
+
+		run_to_block(800);
+
+		let submission = "Submission1".as_bytes().to_vec().try_into().unwrap();
+
+		assert_ok!(ForestaBounties::submit_bounty(RawOrigin::Signed(recipient).into(),bounty_id,submission));
+
+		let submitted_bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(submitted_bounty.status,BountyStatus::Submitted);
+
+	});
+}
+
+#[test]
+fn it_works_for_bounty_awarded() {
+	new_test_ext().execute_with(|| {
+		// Go past genesis block so events get deposited
+		System::set_block_number(1);
+
+		let project_id = 0;
+		let admin = 1;
+		let recipient = 2;
+		let bounty_id = 0;
+		let block_duration = 1000u64;
+
+		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
+
+		init_project_and_treasury::<Test>();
+
+		// Set bounty payout unlcok duration
+
+		assert_ok!(ForestaBounties::force_set_unlock_duration(RawOrigin::Root.into(),1000));
+
+
+		//create bounty
+
+		let metadata = "Bounty1".as_bytes().to_vec().try_into().unwrap();
+
+		assert_ok!(ForestaBounties::create_bounty(RawOrigin::Root.into(),project_id,USDT,50,
+		metadata));
+
+		
+		let bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(bounty.status,BountyStatus::Proposed);
+
+		// Project admin activates bounty
+
+		run_to_block(100);
+		
+		assert_ok!(ForestaBounties::activate_bounty(RawOrigin::Signed(admin).into(),bounty_id,recipient,block_duration));
+
+		let activated_bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(activated_bounty.status,BountyStatus::Active);
+
+		// Recipient submits bounty
+
+		run_to_block(800);
+
+		let submission = "Submission1".as_bytes().to_vec().try_into().unwrap();
+
+		assert_ok!(ForestaBounties::submit_bounty(RawOrigin::Signed(recipient).into(),bounty_id,submission));
+
+		let submitted_bounty = ForestaBounties::get_bounty(bounty_id).unwrap();
+		assert_eq!(submitted_bounty.status,BountyStatus::Submitted);
+
+		// Admin awards bounty
+
+		run_to_block(1100);
+
+		assert_ok!(ForestaBounties::award_bounty(RawOrigin::Signed(admin).into(),bounty_id));
+
+		assert_eq!(Tokens::free_balance(USDT, &recipient), 0);
+
+		// Check payout
+
+		run_to_block(2101);
+
+		assert_eq!(Tokens::free_balance(USDT, &recipient), 50);
+
+	});
+}
+
+
+
+
+
