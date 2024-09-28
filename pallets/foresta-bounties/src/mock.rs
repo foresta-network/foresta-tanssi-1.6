@@ -18,6 +18,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 use primitives::{Amount, Balance, CarbonCreditsValidator, CurrencyId};
 use orml_traits::parameter_type_with_key;
 pub type AccountId = u64;
+pub const USDT: CurrencyId = CurrencyId::USDT;
+
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -279,5 +281,25 @@ impl pallet_foresta_bounties::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+	pallet_membership::GenesisConfig::<Test> {
+		members: sp_core::bounded_vec![1, 2, 3, 4, 10],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+	
+	orml_tokens::GenesisConfig::<Test> { balances: vec![(4, USDT, 10000), (10, USDT, 10000)] }
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+	let mut ext: sp_io::TestExternalities = t.into();
+	// need to set block number to 1 to test events
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+pub fn last_event() -> RuntimeEvent {
+	System::events().pop().expect("Event expected").event
 }

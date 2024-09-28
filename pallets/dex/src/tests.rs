@@ -1157,13 +1157,13 @@ fn purchase_is_retired_if_payment_is_stripe() {
 		));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 10));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 1000));
 
 		add_validator_account(validator);
 		add_validator_account(validator_two);
 
 		// create a new buy order
-		assert_ok!(Dex::create_buy_order(RuntimeOrigin::signed(buyer), 0, asset_id, 1, 11));
+		assert_ok!(Dex::create_buy_order(RuntimeOrigin::signed(buyer), 0, asset_id, 1, 110));
 
 		let tx_proof: BoundedVec<_, _> = vec![].try_into().unwrap();
 
@@ -1194,10 +1194,10 @@ fn purchase_is_retired_if_payment_is_stripe() {
 		let buy_order_storage = BuyOrders::<Test>::get(0).unwrap();
 		assert_eq!(buy_order_storage.buyer, buyer);
 		assert_eq!(buy_order_storage.units, 1);
-		assert_eq!(buy_order_storage.price_per_unit, 10);
+		assert_eq!(buy_order_storage.price_per_unit, 1000);
 		assert_eq!(buy_order_storage.asset_id, asset_id);
-		assert_eq!(buy_order_storage.total_fee, 11);
-		assert_eq!(buy_order_storage.total_amount, 21);
+		assert_eq!(buy_order_storage.total_fee, 110);
+		assert_eq!(buy_order_storage.total_amount, 1110);
 
 		let payment_info = buy_order_storage.payment_info.unwrap();
 		assert_eq!(payment_info.chain_id, chain_id);
@@ -1257,9 +1257,9 @@ fn purchase_is_retired_if_payment_is_stripe() {
 		// seller receivable should be updated with the correct amount
 		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
 		// seller 9 treasury 1
-		assert_eq!(seller_receivables, 9);
+		assert_eq!(seller_receivables, 900);
 		let pot = Treasury::<Test>::get(project_id,USDT);
-		assert_eq!(pot,1);
+		assert_eq!(pot,100);
 
 		// buy order storage should be cleared since payment is done
 		let buy_order_storage = BuyOrders::<Test>::get(0);

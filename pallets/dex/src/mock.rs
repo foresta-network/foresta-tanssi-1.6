@@ -270,7 +270,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.assimilate_storage(&mut t)
 	.unwrap();
 	
-	orml_tokens::GenesisConfig::<Test> { balances: vec![(4, USDT, 100), (10, USDT, 10000)] }
+	orml_tokens::GenesisConfig::<Test> { balances: vec![(4, USDT, 10000), (10, USDT, 10000)] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

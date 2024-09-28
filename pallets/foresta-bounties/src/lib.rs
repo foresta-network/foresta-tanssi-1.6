@@ -224,7 +224,7 @@ pub mod pallet {
 
 	}
 
-		#[pallet::error]
+	#[pallet::error]
 	pub enum Error<T> {
 		/// The value retrieved was `None` as no value was previously set.
 		NoneValue,

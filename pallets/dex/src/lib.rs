@@ -203,7 +203,7 @@ pub mod pallet {
 	// Project Treasury	
 	#[pallet::storage]
 	#[pallet::getter(fn get_pot)]
-	pub(super) type Treasury<T: Config> = StorageDoubleMap<
+	pub type Treasury<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		ProjectIdOf<T>,
