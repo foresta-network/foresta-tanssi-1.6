@@ -3,10 +3,16 @@
 use super::*;
 
 #[allow(unused)]
-use crate::Pallet as Template;
+use crate::Pallet as ForestaBounties;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_runtime::traits::BlockNumber;
+use orml_traits::MultiCurrency;
+use primitives::CurrencyId;
+
+fn get_currency_id() -> CurrencyId {
+	primitives::CurrencyId::USDT
+}
 
 #[benchmarks]
 mod benchmarks {
