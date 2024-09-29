@@ -1,7 +1,7 @@
 use crate::{mock::*, Config, Error, VoteType, Vote, VoteStatus, MembersCount, VoteCategory, VotePriority};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{tokens::fungibles::{metadata::Inspect as MetadataInspect, Inspect}, OnFinalize, OnInitialize, StorePreimage},
+	traits::{tokens::fungibles::{metadata::Inspect as MetadataInspect, Inspect}, OnFinalize, OnInitialize, StorePreimage, Contains},
 	BoundedVec,
 };
 use frame_system::RawOrigin;
@@ -12,6 +12,7 @@ use primitives::{Batch, RegistryDetails, RegistryName, Royalty, SDGDetails, SdgT
 use sp_runtime::Percent;
 use sp_std::convert::TryInto;
 use pallet_scheduler::BoundedCallOf;
+use frame_support::traits::QueryPreimage;
 
 /// helper function to generate standard creation details
 
@@ -180,6 +181,7 @@ fn run_to_block(n: u64) {
 		System::set_block_number(System::block_number() + 1);
 		System::on_initialize(System::block_number());
 		ForestaCollectives::on_initialize(System::block_number());
+		Scheduler::on_initialize(System::block_number());
 	}
 }
 
@@ -498,8 +500,18 @@ fn it_works_for_create_proposal() {
 		assert_noop!(ForestaCollectives::cast_vote(RawOrigin::Signed(member).into(),vote_id,true),
 		Error::<Test>::VoteNotInProgress);
 
-		//assert_eq!(Balances::free_balance(42), 100);
+		//assert_ok!(Balances::force_set_balance(RawOrigin::Root.into(),42,100));
+
+		assert_eq!(Balances::free_balance(42), 100);
 		
 	});
+}
+
+#[test]
+fn set_balance_proposal_is_correctly_filtered_out() {
+	for i in 0..10 {
+		let call = Preimage::realize(&set_balance_proposal(i)).unwrap().0;
+		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+	}
 }
 

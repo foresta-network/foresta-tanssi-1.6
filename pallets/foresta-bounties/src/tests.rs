@@ -1,4 +1,4 @@
-use crate::{mock::*, Config, Error, Event, Something, UnlockDuration, BountiesCount, Bounty, BountyStatus};
+use crate::{mock::*, Config, Error, Event, UnlockDuration, BountiesCount, Bounty, BountyStatus};
 use frame_support::{
 	assert_noop, assert_ok, traits::{OnIdle, OnFinalize, OnInitialize}, weights::Weight, BoundedVec, PalletId,
 };

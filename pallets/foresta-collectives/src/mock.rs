@@ -53,8 +53,15 @@ parameter_types! {
 		);
 }
 
+pub struct BaseFilter;
+impl Contains<RuntimeCall> for BaseFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		!matches!(call, &RuntimeCall::Balances(pallet_balances::Call::force_set_balance { .. }))
+	}
+}
+
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = BaseFilter;
 	type BlockWeights = BlockWeights;
 	type BlockLength = ();
 	type DbWeight = ();
@@ -400,4 +407,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 pub fn last_event() -> RuntimeEvent {
 	System::events().pop().expect("Event expected").event
 }
+
 
