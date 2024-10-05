@@ -290,7 +290,7 @@ pub fn init_project_and_treasury<T: Config>() {
 	);*/
 	let project_id = 0;
 	// seller receivable should be updated with the correct amount
-	let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
+	let seller_receivables = SellerReceivables::<Test>::get(seller,USDT);
 	// seller 9 treasury 1
 	assert_eq!(seller_receivables, 900);
 	let pot = Treasury::<Test>::get(project_id,USDT);

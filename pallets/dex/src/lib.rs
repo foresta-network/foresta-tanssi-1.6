@@ -195,10 +195,18 @@ pub mod pallet {
 		StorageValue<_, u32, ValueQuery, DefaultMinPaymentValidators<T>>;
 
 	// Seller receivables from sales
+	
 	#[pallet::storage]
 	#[pallet::getter(fn seller_receivables)]
-	pub type SellerReceivables<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, CurrencyBalanceOf<T>>;
+	pub type SellerReceivables<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId, 
+		Blake2_128Concat,
+		CurrencyIdOf<T>,
+		CurrencyBalanceOf<T>,
+		ValueQuery,
+	>;
 
 	// Project Treasury	
 	#[pallet::storage]
@@ -380,6 +388,8 @@ pub mod pallet {
 		TreasuryNotFound,
 		/// CannotSetMoreThanMaxRoyalty
 		CannotSetMoreThanMaxRoyalty,
+		/// ReceivableNotFound
+		ReceivableNotFound,
 	}
 
 	#[pallet::hooks]
@@ -776,21 +786,17 @@ pub mod pallet {
 
 						let royalty = RoyaltyPercent::<T>::get().mul_ceil(amount_minus_fees);
 						// add amount record to the seller
-						SellerReceivables::<T>::try_mutate(
-							sell_order.owner.clone(),
-							|receivable| -> DispatchResult {
-								let current_receivables =
-									receivable.get_or_insert_with(Default::default);
+						
 
-								let amount_to_seller = amount_minus_fees.checked_sub(&royalty)
+						let current_receivables = Self::seller_receivables(sell_order.owner.clone(),currency_id);
+
+						let amount_to_seller = amount_minus_fees.checked_sub(&royalty)
 								.ok_or(Error::<T>::OrderUnitsOverflow)?;
-								let new_receivables = current_receivables
+
+						let new_receivables = current_receivables
 									.checked_add(&amount_to_seller)
 									.ok_or(Error::<T>::OrderUnitsOverflow)?;
-								*receivable = Some(new_receivables);
-								Ok(())
-							},
-						)?;
+						SellerReceivables::<T>::insert(sell_order.owner.clone(),currency_id,new_receivables);
 
 						BuyOrdersByUser::<T>::try_mutate(
 							order.buyer.clone(),
@@ -1017,6 +1023,7 @@ pub mod pallet {
 		pub fn record_payment_to_seller(
 			origin: OriginFor<T>,
 			seller: T::AccountId,
+			currency_id: CurrencyIdOf<T>,
 			payout: PayoutExecutedToSellerOf<T>,
 		) -> DispatchResult {
 			let authority = ensure_signed(origin)?;
@@ -1027,13 +1034,15 @@ pub mod pallet {
 			ensure!(authority == expected_authority, Error::<T>::NotSellerPayoutAuthority);
 
 			// subtract the paid amount from the receivables
-			SellerReceivables::<T>::try_mutate(seller.clone(), |receivable| -> DispatchResult {
-				let receivable = receivable.as_mut().ok_or(Error::<T>::NoReceivables)?;
-				*receivable = receivable
+
+			let mut receivable = Self::seller_receivables(seller.clone(),currency_id);
+
+			receivable = receivable
 					.checked_sub(&payout.amount)
 					.ok_or(Error::<T>::ReceivableLessThanPayment)?;
-				Ok(())
-			})?;
+
+			SellerReceivables::<T>::insert(seller.clone(),currency_id,receivable);
+
 
 			Self::deposit_event(Event::SellerPayoutExecuted { seller, payout });
 			Ok(())
@@ -1149,21 +1158,16 @@ pub mod pallet {
 				let royalty = RoyaltyPercent::<T>::get().mul_ceil(amount_minus_fees);
 
 				// add amount record to the seller
-				SellerReceivables::<T>::try_mutate(
-					order.owner.clone(),
-					|receivable| -> DispatchResult {
-						let current_receivables =
-							receivable.get_or_insert_with(Default::default);
 
-						let amount_to_seller = amount_minus_fees.checked_sub(royalty)
-						.ok_or(Error::<T>::OrderUnitsOverflow)?;
-						let new_receivables = current_receivables
-							.checked_add(&amount_to_seller.into())
-							.ok_or(Error::<T>::OrderUnitsOverflow)?;
-						*receivable = Some(new_receivables);
-						Ok(())
-					},
-				)?;
+				let current_receivables = Self::seller_receivables(order.owner.clone(),currency_id);
+
+				let amount_to_seller = amount_minus_fees.checked_sub(royalty)
+								.ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+				let new_receivables = current_receivables
+									.checked_add(&amount_to_seller.into())
+									.ok_or(Error::<T>::OrderUnitsOverflow)?;
+				SellerReceivables::<T>::insert(order.owner.clone(),currency_id,new_receivables);
 
 				let mut pot = Self::get_pot(project_id,currency_id);
 
@@ -1198,6 +1202,10 @@ pub mod pallet {
 					T::Asset::transfer(asset_id.clone(),&Self::account_id(),&buyer, units, Expendable)?;
 				}
 
+				// Currency Transfer
+
+				T::Currency::transfer(currency_id,&buyer.clone(),&Self::account_id(),total_amount.into())?;
+
 				let units_order = order.units.clone();
 
 				let remaining_units: u128 =
@@ -1209,6 +1217,28 @@ pub mod pallet {
 	
 				Ok(())
 			})
+		}
+
+		#[pallet::call_index(16)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::buy_order())]
+		pub fn claim_tokens(
+			origin: OriginFor<T>,
+			currency_id: CurrencyIdOf<T>,
+			amount: CurrencyBalanceOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let current_receivables = Self::seller_receivables(who.clone(),currency_id);
+
+			ensure!(amount <= current_receivables,Error::<T>::NotEnoughFunds);
+
+			let new_receivables = current_receivables
+						.checked_sub(&amount)
+						.ok_or(Error::<T>::OrderUnitsOverflow)?;
+			T::Currency::transfer(currency_id,&Self::account_id(),&who,amount)?;
+			SellerReceivables::<T>::insert(who.clone(),currency_id,new_receivables);
+
+			Ok(())
 		}
 
 	}

@@ -13,6 +13,7 @@ use pallet_carbon_credits::{
 	BatchGroupListOf, BatchGroupOf, BatchOf, ProjectCreateParams, RegistryListOf, SDGTypesListOf,
 };
 use primitives::{Batch, RegistryDetails, RegistryName, Royalty, SDGDetails, SdgType, CurrencyId};
+use orml_traits::MultiCurrency;
 
 /// helper function to add authorised account
 fn add_validator_account(validator_account: u64) {
@@ -682,7 +683,7 @@ fn payment_is_processed_after_validator_threshold_reached() {
 		);
 		let project_id = 0;
 		// seller receivable should be updated with the correct amount
-		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
+		let seller_receivables = SellerReceivables::<Test>::get(seller,USDT);
 		// seller 9 treasury 1
 		assert_eq!(seller_receivables, 9);
 		let pot = Treasury::<Test>::get(project_id,USDT);
@@ -945,7 +946,7 @@ fn record_payment_to_seller_should_work() {
 
 		// Ensure the extrinsic fails with SellerPayoutAuthorityNotSet error
 		assert_noop!(
-			Dex::record_payment_to_seller(RuntimeOrigin::signed(seller), seller, payment.clone()),
+			Dex::record_payment_to_seller(RuntimeOrigin::signed(seller), seller, USDT, payment.clone()),
 			Error::<Test>::SellerPayoutAuthorityNotSet
 		);
 
@@ -954,7 +955,7 @@ fn record_payment_to_seller_should_work() {
 
 		// Ensure the extrinsic fails with NotSellerPayoutAuthority error
 		assert_noop!(
-			Dex::record_payment_to_seller(RuntimeOrigin::signed(seller), seller, payment.clone()),
+			Dex::record_payment_to_seller(RuntimeOrigin::signed(seller), seller, USDT, payment.clone()),
 			Error::<Test>::NotSellerPayoutAuthority
 		);
 
@@ -963,36 +964,39 @@ fn record_payment_to_seller_should_work() {
 			Dex::record_payment_to_seller(
 				RuntimeOrigin::signed(authority),
 				seller,
+				USDT,
 				payment.clone()
 			),
-			Error::<Test>::NoReceivables
+			Error::<Test>::ReceivableLessThanPayment
 		);
 
 		// Set the seller's receivables to 90
-		crate::SellerReceivables::<Test>::set(seller, Some(90));
+		crate::SellerReceivables::<Test>::set(seller,USDT, 90);
 
 		// Ensure the extrinsic fails with ReceivableLessThanPayment error
 		assert_noop!(
 			Dex::record_payment_to_seller(
 				RuntimeOrigin::signed(authority),
 				seller,
+				USDT,
 				payment.clone()
 			),
 			Error::<Test>::ReceivableLessThanPayment
 		);
 
 		// Set the seller's receivables to 100
-		crate::SellerReceivables::<Test>::set(seller, Some(100));
+		crate::SellerReceivables::<Test>::set(seller,USDT, 100);
 
 		// Call the record_payment_to_seller extrinsic and assert that it succeeds
 		assert_ok!(Dex::record_payment_to_seller(
 			RuntimeOrigin::signed(authority),
 			seller,
+			USDT,
 			payment.clone()
 		));
 
 		// Assert that the seller's receivables is updated to 0
-		assert_eq!(crate::SellerReceivables::<Test>::get(seller).unwrap(), 0);
+		assert_eq!(crate::SellerReceivables::<Test>::get(seller,USDT), 0);
 	});
 }
 
@@ -1256,7 +1260,7 @@ fn purchase_is_retired_if_payment_is_stripe() {
 		);*/
 		let project_id = 0;
 		// seller receivable should be updated with the correct amount
-		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
+		let seller_receivables = SellerReceivables::<Test>::get(seller,USDT);
 		// seller 9 treasury 1
 		assert_eq!(seller_receivables, 900);
 		let pot = Treasury::<Test>::get(project_id,USDT);
@@ -1301,6 +1305,8 @@ fn buy_sell_order_test() {
 			1000
 		));
 
+		assert_eq!(Tokens::free_balance(USDT, &dex_account), 0);
+
 		// should be able to create a sell order
 		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
 
@@ -1309,7 +1315,7 @@ fn buy_sell_order_test() {
 
 		let project_id = 0;
 		// seller receivable should be updated with the correct amount
-		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
+		let seller_receivables = SellerReceivables::<Test>::get(seller,USDT);
 		// seller 9 treasury 1
 		assert_eq!(seller_receivables, 900);
 		let pot = Treasury::<Test>::get(project_id,USDT);
@@ -1319,6 +1325,7 @@ fn buy_sell_order_test() {
 		assert_eq!(Assets::balance(asset_id, seller), 95);
 		assert_eq!(Assets::balance(asset_id, dex_account), 4);
 		assert_eq!(Assets::balance(asset_id, buyer), 1);// Retest
+		assert_eq!(Tokens::free_balance(USDT, &dex_account), 1110);
 	});
 }
 
@@ -1350,6 +1357,8 @@ fn retire_sell_order_test() {
 			1000
 		));
 
+		assert_eq!(Tokens::free_balance(USDT, &dex_account), 0);
+
 		// should be able to create a sell order
 		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
 
@@ -1358,7 +1367,7 @@ fn retire_sell_order_test() {
 
 		let project_id = 0;
 		// seller receivable should be updated with the correct amount
-		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
+		let seller_receivables = SellerReceivables::<Test>::get(seller,USDT);
 		// seller 9 treasury 1
 		assert_eq!(seller_receivables, 900);
 		let pot = Treasury::<Test>::get(project_id,USDT);
@@ -1368,5 +1377,15 @@ fn retire_sell_order_test() {
 		assert_eq!(Assets::balance(asset_id, seller), 95);
 		assert_eq!(Assets::balance(asset_id, dex_account), 4);
 		assert_eq!(Assets::balance(asset_id, buyer), 0);// Retest
+
+		assert_eq!(Tokens::free_balance(USDT, &dex_account), 1110);
+
+		// Seller claims half receivables
+
+		assert_eq!(Tokens::free_balance(USDT, &seller), 0);
+
+		assert_ok!(Dex::claim_tokens(RuntimeOrigin::signed(seller),USDT,450));
+		assert_eq!(SellerReceivables::<Test>::get(seller,USDT),450);
+		assert_eq!(Tokens::free_balance(USDT, &seller), 450);
 	});
 }
