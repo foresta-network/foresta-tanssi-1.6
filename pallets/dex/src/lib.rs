@@ -250,6 +250,7 @@ pub mod pallet {
 			project_id: ProjectIdOf<T>,
 			group_id: GroupIdOf<T>,
 			units: T::Balance,
+			currency_id: CurrencyIdOf<T>,
 			price_per_unit: CurrencyBalanceOf<T>,
 			owner: T::AccountId,
 		},
@@ -472,6 +473,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			asset_id: T::AssetId,
 			units: T::Balance,
+			currency_id: CurrencyIdOf<T>,
 			price_per_unit: CurrencyBalanceOf<T>,
 		) -> DispatchResult {
 			let seller = ensure_signed(origin.clone())?;
@@ -500,6 +502,7 @@ pub mod pallet {
 					units,
 					price_per_unit,
 					asset_id: asset_id.clone(),
+					currency_id: currency_id.clone(),
 				},
 			);
 
@@ -509,6 +512,7 @@ pub mod pallet {
 				project_id,
 				group_id,
 				units,
+				currency_id,
 				price_per_unit,
 				owner: seller,
 			});
@@ -1073,6 +1077,138 @@ pub mod pallet {
 			);
 			RoyaltyPercent::<T>::set(royalty_percent);
 			Ok(())
+		}
+
+		#[pallet::call_index(15)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::buy_order())]
+		pub fn trade_order(
+			origin: OriginFor<T>,
+			order_id: OrderId,
+			asset_id: T::AssetId,
+			units: T::Balance,
+			max_fee: CurrencyBalanceOf<T>,
+			retire: bool,
+			retirement_reason: Option<sp_std::vec::Vec<u8>>,
+		) -> DispatchResult {
+			let buyer = ensure_signed(origin)?;
+			Self::check_kyc_approval(&buyer)?;
+
+			if units.is_zero() {
+				return Ok(())
+			}
+
+			Orders::<T>::try_mutate(order_id, |maybe_order| -> DispatchResult {
+				let mut order = maybe_order.take().ok_or(Error::<T>::InvalidOrderId)?;
+
+				// ensure the expected asset matches the order
+				ensure!(asset_id == order.asset_id, Error::<T>::InvalidAssetId);
+
+				// ensure the seller and buyer are not the same
+				ensure!(buyer != order.owner, Error::<T>::SellerAndBuyerCannotBeSame);
+
+				// ensure volume remaining can cover the buy order
+				ensure!(units <= order.units, Error::<T>::OrderUnitsOverflow);
+
+				// get the projectId and groupId for events
+				let (project_id, group_id) = pallet_carbon_credits::Pallet::<T>::asset_id_lookup(asset_id)
+					.ok_or(Error::<T>::AssetNotPermitted)?;
+
+				let currency_id = order.currency_id;
+
+				// reduce the buy_order units from total volume
+				order.units =
+					order.units.checked_sub(&units).ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+				// calculate fees
+				let units_as_u128: u128 =
+					units.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
+				let price_per_unit_as_u128: u128 =
+					order.price_per_unit.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
+
+				let required_currency = price_per_unit_as_u128
+					.checked_mul(units_as_u128)
+					.ok_or(Error::<T>::ArithmeticError)?;
+
+				let payment_fee = PaymentFees::<T>::get().mul_ceil(required_currency);
+				let purchase_fee: u128 =
+					PurchaseFees::<T>::get().try_into().map_err(|_| Error::<T>::ArithmeticError)?;
+
+				let total_fee =
+					payment_fee.checked_add(purchase_fee).ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+		
+				let total_amount = total_fee
+					.checked_add(required_currency)
+					.ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+				ensure!(max_fee >= total_fee.into(), Error::<T>::FeeExceedsUserLimit);
+
+				let amount_minus_fees = total_amount.checked_sub(total_fee)
+									.ok_or(Error::<T>::OrderUnitsOverflow)?;
+				
+				let royalty = RoyaltyPercent::<T>::get().mul_ceil(amount_minus_fees);
+
+				// add amount record to the seller
+				SellerReceivables::<T>::try_mutate(
+					order.owner.clone(),
+					|receivable| -> DispatchResult {
+						let current_receivables =
+							receivable.get_or_insert_with(Default::default);
+
+						let amount_to_seller = amount_minus_fees.checked_sub(royalty)
+						.ok_or(Error::<T>::OrderUnitsOverflow)?;
+						let new_receivables = current_receivables
+							.checked_add(&amount_to_seller.into())
+							.ok_or(Error::<T>::OrderUnitsOverflow)?;
+						*receivable = Some(new_receivables);
+						Ok(())
+					},
+				)?;
+
+				let mut pot = Self::get_pot(project_id,currency_id);
+
+				pot = pot.checked_add(&royalty.into()).ok_or(Error::<T>::OrderUnitsOverflow)?;
+
+				Treasury::<T>::insert(project_id,currency_id,pot);
+				Self::deposit_event(Event::BuyOrderFilled {
+					order_id,
+					sell_order_id: order_id,
+					units: units,
+					project_id: project_id.clone(),
+					group_id: group_id.clone(),
+					price_per_unit: order.price_per_unit,
+					fees_paid: total_fee.into(),
+					seller: order.owner.clone(),
+					buyer: buyer.clone(),
+				});
+
+				if retire == true {
+					pallet_carbon_credits::Pallet::<T>::retire_carbon_credits(
+						Self::account_id().clone(),
+						project_id.clone(),
+						group_id.clone(),
+						units,
+						retirement_reason,
+						None,
+						None,
+						None,
+					)?;
+				} else {
+					// transfer assets from pallet to buyer
+					T::Asset::transfer(asset_id.clone(),&Self::account_id(),&buyer, units, Expendable)?;
+				}
+
+				let units_order = order.units.clone();
+
+				let remaining_units: u128 =
+					units_order.try_into().map_err(|_| Error::<T>::ArithmeticError)?;
+
+				if remaining_units > 0u128 {
+					*maybe_order = Some(order);
+				}
+	
+				Ok(())
+			})
 		}
 
 	}

@@ -1213,10 +1213,6 @@ pub mod pallet {
 				}
 				VarCount::<T>::put(when);
 				
-				Self::deposit_event(Event::CallScheduled {
-					schedule_task_id: [0u8; 32]
-				});
-				
 			}
 
 			Ok(())

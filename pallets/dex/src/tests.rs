@@ -207,7 +207,7 @@ fn basic_create_sell_order_should_work() {
 		//assert_ok!(Assets::mint(RuntimeOrigin::signed(seller), asset_id, 1, 100));
 		assert_eq!(Assets::balance(asset_id, seller), 100);
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 1));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1));
 
 		// storage should be updated correctly
 		let sell_order_storage = Orders::<Test>::get(0).unwrap();
@@ -228,6 +228,7 @@ fn basic_create_sell_order_should_work() {
 				project_id: 0,
 				group_id: 0,
 				units: 5,
+				currency_id: USDT,
 				price_per_unit: 1,
 				owner: seller
 			}
@@ -250,13 +251,13 @@ fn create_sell_order_less_than_minimum_should_fail() {
 
 		// sell order with less than minimum units
 		assert_noop!(
-			Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 0, 1),
+			Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 0, USDT, 1),
 			Error::<Test>::BelowMinimumUnits
 		);
 
 		// sell order with less than minimum price
 		assert_noop!(
-			Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 0),
+			Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 0),
 			Error::<Test>::BelowMinimumPrice
 		);
 	});
@@ -276,7 +277,7 @@ fn create_sell_order_should_fail_if_caller_does_not_have_asset_balance() {
 		assert_eq!(Assets::balance(asset_id, seller), 100);
 		// should not be able to create a sell order since the amount is greater than seller balance
 		assert_noop!(
-			Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 101, 1),
+			Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 101, USDT, 1),
 			sp_runtime::ArithmeticError::Underflow
 		);
 	});
@@ -297,7 +298,7 @@ fn cancel_sell_order_should_work() {
 		assert_eq!(Assets::balance(asset_id, seller), 100);
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 1));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1));
 
 		// storage should be updated correctly
 		let sell_order_storage = Orders::<Test>::get(0).unwrap();
@@ -364,7 +365,7 @@ fn buy_order_should_work() {
 		));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 10));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 10));
 
 		// storage should be updated correctly
 		let sell_order_storage = Orders::<Test>::get(0).unwrap();
@@ -495,7 +496,7 @@ fn validate_buy_order_should_work() {
 		));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 10));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 10));
 
 		// create a new buy order
 		assert_ok!(Dex::create_buy_order(RuntimeOrigin::signed(buyer), 0, asset_id, 1, 11));
@@ -583,7 +584,7 @@ fn payment_is_processed_after_validator_threshold_reached() {
 		));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 10));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 10));
 
 		add_validator_account(validator);
 		add_validator_account(validator_two);
@@ -825,7 +826,7 @@ fn buy_order_handle_expiry_should_work() {
 		));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 10));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 10));
 
 		add_validator_account(validator);
 
@@ -1014,7 +1015,7 @@ fn buy_order_limits_should_work() {
 		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 100, 10));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 100, USDT, 10));
 
 		// should fail if the limits are not set
 		assert_noop!(
@@ -1081,7 +1082,7 @@ fn buy_order_limits_are_reset_correctly() {
 		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 100, 10));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 100, USDT, 10));
 
 		// should fail if the limits are not set
 		assert_noop!(
@@ -1157,7 +1158,7 @@ fn purchase_is_retired_if_payment_is_stripe() {
 		));
 
 		// should be able to create a sell order
-		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 1000));
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
 
 		add_validator_account(validator);
 		add_validator_account(validator_two);
@@ -1264,6 +1265,104 @@ fn purchase_is_retired_if_payment_is_stripe() {
 		// buy order storage should be cleared since payment is done
 		let buy_order_storage = BuyOrders::<Test>::get(0);
 		assert!(buy_order_storage.is_none());
+
+		// Asset balance should be set correctly
+		assert_eq!(Assets::balance(asset_id, seller), 95);
+		assert_eq!(Assets::balance(asset_id, dex_account), 4);
+		assert_eq!(Assets::balance(asset_id, buyer), 0);// Retest
+	});
+}
+
+#[test]
+fn buy_sell_order_test() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0;
+		let seller = 1;
+		let buyer = 4;
+		let buy_order_id = 0;
+		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
+
+		let project_tokens_to_mint = 100;
+
+		create_project_and_mint::<Test>(seller, project_tokens_to_mint, false);
+		//assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
+		//assert_ok!(Assets::mint(RuntimeOrigin::signed(seller), asset_id, 1, 100));
+		assert_eq!(Assets::balance(asset_id, seller), 100);
+
+		// set fee values
+		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
+		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
+
+		// configure limit to avoid failure
+		assert_ok!(Dex::force_set_open_order_allowed_limits(
+			RuntimeOrigin::root(),
+			UserLevel::KYCLevel1,
+			1000
+		));
+
+		// should be able to create a sell order
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
+
+		// create a new buy order
+		assert_ok!(Dex::trade_order(RuntimeOrigin::signed(buyer), 0, asset_id, 1, 110, false, None));
+
+		let project_id = 0;
+		// seller receivable should be updated with the correct amount
+		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
+		// seller 9 treasury 1
+		assert_eq!(seller_receivables, 900);
+		let pot = Treasury::<Test>::get(project_id,USDT);
+		assert_eq!(pot,100);
+
+		// Asset balance should be set correctly
+		assert_eq!(Assets::balance(asset_id, seller), 95);
+		assert_eq!(Assets::balance(asset_id, dex_account), 4);
+		assert_eq!(Assets::balance(asset_id, buyer), 1);// Retest
+	});
+}
+
+#[test]
+fn retire_sell_order_test() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0;
+		let seller = 1;
+		let buyer = 4;
+		let buy_order_id = 0;
+		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
+
+		let project_tokens_to_mint = 100;
+
+		create_project_and_mint::<Test>(seller, project_tokens_to_mint, false);
+		//assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
+		//assert_ok!(Assets::mint(RuntimeOrigin::signed(seller), asset_id, 1, 100));
+		assert_eq!(Assets::balance(asset_id, seller), 100);
+
+		// set fee values
+		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
+		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
+
+		// configure limit to avoid failure
+		assert_ok!(Dex::force_set_open_order_allowed_limits(
+			RuntimeOrigin::root(),
+			UserLevel::KYCLevel1,
+			1000
+		));
+
+		// should be able to create a sell order
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
+
+		// create a new buy order
+		assert_ok!(Dex::trade_order(RuntimeOrigin::signed(buyer), 0, asset_id, 1, 110, true, None));
+
+		let project_id = 0;
+		// seller receivable should be updated with the correct amount
+		let seller_receivables = SellerReceivables::<Test>::get(seller).unwrap();
+		// seller 9 treasury 1
+		assert_eq!(seller_receivables, 900);
+		let pot = Treasury::<Test>::get(project_id,USDT);
+		assert_eq!(pot,100);
 
 		// Asset balance should be set correctly
 		assert_eq!(Assets::balance(asset_id, seller), 95);

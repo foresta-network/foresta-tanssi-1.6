@@ -28,6 +28,7 @@ pub type OrderInfoOf<T> = OrderInfo<
 	<T as frame_system::Config>::AccountId,
 	<T as pallet_carbon_credits::Config>::AssetId,
 	<T as pallet_carbon_credits::Config>::Balance,
+	CurrencyIdOf<T>,
 	CurrencyBalanceOf<T>,
 >;
 
@@ -54,10 +55,11 @@ pub type PayoutExecutedToSellerOf<T> = PayoutExecutedToSeller<
 pub type SellerPayoutPreferenceOf<T> = SellerPayoutPreference<<T as Config>::MaxAddressLen>;
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, MaxEncodedLen, TypeInfo)]
-pub struct OrderInfo<AccountId, AssetId, AssetBalance, TokenBalance> {
+pub struct OrderInfo<AccountId, AssetId, AssetBalance, TokenId, TokenBalance> {
 	pub owner: AccountId,
 	pub units: AssetBalance,
 	pub price_per_unit: TokenBalance,
+	pub currency_id: TokenId,
 	pub asset_id: AssetId,
 }
 

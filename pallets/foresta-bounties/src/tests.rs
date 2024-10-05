@@ -219,7 +219,7 @@ pub fn init_project_and_treasury<T: Config>() {
 	));
 
 	// should be able to create a sell order
-	assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, 1000));
+	assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
 
 	add_validator_account(validator);
 	add_validator_account(validator_two);
