@@ -550,15 +550,6 @@ pub mod pallet {
 						VoteType::PoolCreation => {
 							let _ = Self::do_create_pool(*v_id,is_approved);	
 						},
-						VoteType::AddValidator => {
-							let _ = Self::do_add_validator(*v_id,is_approved);	
-						},
-						VoteType::RemoveValidator => {
-							let _ = Self::do_remove_validator(*v_id,is_approved);	
-						},
-						VoteType::SetSellerPayoutAuthority => {
-							let _ = Self::do_add_validator(*v_id,is_approved);	
-						},
 						VoteType::Proposal => {
 							let _ = Self::do_schedule_dispatch(*v_id,is_approved);	
 						},
@@ -851,49 +842,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(6)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
-		pub fn init_dex_management_vote(origin: OriginFor<T>, account: T::AccountId, vote_type: VoteType, category: VoteCategory,  priority: VotePriority,) -> DispatchResult {
-			let member = ensure_signed(origin)?;
-			// Check if member
-			Self::check_kyc_approval(&member)?;
-			ensure!(vote_type == VoteType::AddValidator || vote_type == VoteType::RemoveValidator || 
-			vote_type == VoteType::SetSellerPayoutAuthority, Error::<T>::WrongVoteType);
-
-			let uid = Self::votes_count();
-			let current_block = <frame_system::Pallet<T>>::block_number();
-
-			let final_block = current_block + T::VotingDuration::get();
-
-			ActiveVoting::<T>::try_mutate(final_block, |projects| {
-				projects.try_push(uid).map_err(|_| Error::<T>::MaxVotingExceeded)?;
-				Ok::<(),DispatchError>(())
-			})?; 
-
-			let vote_info = Vote::<T> {
-				yes_votes: 0,
-				no_votes: 0,
-				end: final_block,
-				status: VoteStatus::Deciding,
-				vote_type: vote_type,
-				category,
-				priority,
-				collective_id: None,
-				project_id: None,
-			};
-
-			let dex_params_info = DexParams::<T> {
-				account: account,
-			};
-
-			ProjectVote::<T>::insert(uid,&vote_info);
-			DexParamsInfo::<T>::insert(uid,&dex_params_info);
-			let uid2 = uid.checked_add(&1u32.into()).ok_or(ArithmeticError::Overflow)?;
-			VotesCount::<T>::put(uid2);
-
-			Ok(())
-		}
-
 
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_collective())]
@@ -1129,35 +1077,6 @@ pub mod pallet {
 				let _ = pallet_carbon_credits_pool::Pallet::<T>::create(frame_system::RawOrigin::Root.into(),
 				params.id,params.admin,params.config,params.max_limit,params.asset_symbol);
 					
-			}
-
-			Ok(())
-		}
-
-		pub fn do_add_validator(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
-			if is_approved == true {
-				let params = Self::get_dex_params_info(vote_id).ok_or(Error::<T>::ParamsNotFound)?;
-				let _ = pallet_dex::Pallet::<T>::do_add_validator_account(params.account);
-			}
-
-			Ok(())
-			
-		}
-
-		pub fn do_remove_validator(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
-			if is_approved == true {
-				let params = Self::get_dex_params_info(vote_id).ok_or(Error::<T>::ParamsNotFound)?;
-				let _ = pallet_dex::Pallet::<T>::do_remove_validator_account(params.account);
-			}
-
-			Ok(())
-			
-		}
-
-		pub fn do_set_seller_payout_authority(vote_id: T::VoteId, is_approved: bool) -> DispatchResult {
-			if is_approved == true {
-				let params = Self::get_dex_params_info(vote_id).ok_or(Error::<T>::ParamsNotFound)?;
-				let _ = pallet_dex::Pallet::<T>::do_set_seller_payout_authority(params.account);
 			}
 
 			Ok(())
