@@ -7,14 +7,9 @@ use sp_runtime::{traits::AccountIdConversion, Percent};
 use pallet_carbon_credits::{
 	BatchGroupListOf, BatchGroupOf, BatchOf, ProjectCreateParams, RegistryListOf, SDGTypesListOf,
 };
-use pallet_dex::{BuyOrders, BuyOrdersByUser, SellerReceivables, Treasury};
+use pallet_dex::{SellerReceivables, Treasury};
 use primitives::{Batch, RegistryDetails, RegistryName, Royalty, SDGDetails, SdgType, CurrencyId,  UserLevel};
 use orml_traits::MultiCurrency;
-/// helper function to add authorised account
-fn add_validator_account(validator_account: u64) {
-	// authorise the account
-	assert_ok!(Dex::force_add_validator_account(RawOrigin::Root.into(), validator_account));
-}
 
 /// helper function to generate standard registry details
 fn get_default_registry_details<T: Config>() -> RegistryListOf<T> {
@@ -191,120 +186,60 @@ pub fn create_project_and_mint<T: Config>(
 
 pub fn init_project_and_treasury<T: Config>() {
 	let asset_id = 0;
-	let admin = 1;
-	let seller = 1;
-	let buyer = 4;
-	let validator = 10;
-	let validator_two = 11;
-	let buy_order_id = 0;
-	let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
-	let chain_id = 0u32;
+		let seller = 1;
+		let buyer = 4;
+		let buy_order_id = 0;
+		let dex_account: u64 = PalletId(*b"bitg/dex").into_account_truncating();
 
-	let project_tokens_to_mint = 100;
+		let project_tokens_to_mint = 100;
 
-	create_project_and_mint::<Test>(admin, project_tokens_to_mint, false);
+		create_project_and_mint::<Test>(seller, project_tokens_to_mint, false);
+		//assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, 1, true, 1));
+		//assert_ok!(Assets::mint(RuntimeOrigin::signed(seller), asset_id, 1, 100));
+		assert_eq!(Assets::balance(asset_id, seller), 100);
 
-	assert_eq!(Assets::balance(asset_id, seller), 100);
+		// set fee values
+		assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
+		assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
+		assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
 
-	// set fee values
-	assert_ok!(Dex::force_set_payment_fee(RuntimeOrigin::root(), Percent::from_percent(10)));
-	assert_ok!(Dex::force_set_purchase_fee(RuntimeOrigin::root(), 10u32.into()));
-	assert_ok!(Dex::force_set_royalty(RuntimeOrigin::root(), Percent::from_percent(10)));
+		// configure limit to avoid failure
+		assert_ok!(Dex::force_set_open_order_allowed_limits(
+			RuntimeOrigin::root(),
+			UserLevel::KYCLevel1,
+			1000
+		));
 
-	// configure limit to avoid failure
-	assert_ok!(Dex::force_set_open_order_allowed_limits(
-		RuntimeOrigin::root(),
-		UserLevel::KYCLevel1,
-		1000
-	));
+		assert_eq!(Tokens::free_balance(USDT, &dex_account), 0);
 
-	// should be able to create a sell order
-	assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
+		// should be able to create a sell order
+		assert_ok!(Dex::create_sell_order(RuntimeOrigin::signed(seller), asset_id, 5, USDT, 1000));
 
-	add_validator_account(validator);
-	add_validator_account(validator_two);
+		// create a new buy order
+		assert_ok!(Dex::trade_order(RuntimeOrigin::signed(buyer), 0, asset_id, 1, 110, true, None));
 
-	// create a new buy order
-	assert_ok!(Dex::create_buy_order(RuntimeOrigin::signed(buyer), 0, asset_id, 1, 110));
+		let project_id = 0;
+		// seller receivable should be updated with the correct amount
+		let seller_receivables = SellerReceivables::<Test>::get(seller,USDT);
+		// seller 9 treasury 1
+		assert_eq!(seller_receivables, 900);
+		let pot = Treasury::<Test>::get(project_id,USDT);
+		assert_eq!(pot,100);
 
-	// Send Price + Fees to the dex account
+		// Asset balance should be set correctly
+		assert_eq!(Assets::balance(asset_id, seller), 95);
+		assert_eq!(Assets::balance(asset_id, dex_account), 4);
+		assert_eq!(Assets::balance(asset_id, buyer), 0);// Retest
 
-	assert_ok!(Tokens::transfer(Some(4).into(), dex_account, USDT, 1110));
+		assert_eq!(Tokens::free_balance(USDT, &dex_account), 1110);
 
-	let tx_proof: BoundedVec<_, _> = vec![].try_into().unwrap();
+		// Seller claims half receivables
 
-	// validator can validate a payment order
-	assert_ok!(Dex::validate_buy_order(
-		RuntimeOrigin::signed(validator),
-		buy_order_id,
-		chain_id,
-		tx_proof.clone(),
-		USDT,
-		None
-	));
+		assert_eq!(Tokens::free_balance(USDT, &seller), 0);
 
-	// buy order storage should be updated correctly
-	let buy_order_storage = BuyOrders::<Test>::get(0).unwrap();
-	assert_eq!(buy_order_storage.buyer, buyer);
-	assert_eq!(buy_order_storage.units, 1);
-	assert_eq!(buy_order_storage.price_per_unit, 1000);
-	assert_eq!(buy_order_storage.asset_id, asset_id);
-	assert_eq!(buy_order_storage.total_fee, 110);
-	assert_eq!(buy_order_storage.total_amount, 1110);
-
-	let payment_info = buy_order_storage.payment_info.unwrap();
-	assert_eq!(payment_info.chain_id, chain_id);
-	assert_eq!(payment_info.tx_proof, tx_proof);
-	assert_eq!(payment_info.validators.len(), 1);
-	assert_eq!(payment_info.validators.first().unwrap(), &validator);
-
-	// ensure the storage is updated correctly
-	let order_storage_by_user = BuyOrdersByUser::<Test>::get(buyer);
-	let expected_storage = vec![(0, 1)];
-	assert_eq!(order_storage_by_user.unwrap().into_inner(), expected_storage);
-
-	//	next validator validates
-	assert_ok!(Dex::validate_buy_order(
-		RuntimeOrigin::signed(validator_two),
-		buy_order_id,
-		chain_id,
-		tx_proof,
-		USDT,
-		None
-	));
-
-	/*assert_eq!(
-		last_event(),
-		Event::BuyOrderFilled {
-			order_id: 0,
-			sell_order_id: 0,
-			buyer,
-			seller,
-			fees_paid: buy_order_storage.total_fee,
-			units: buy_order_storage.units,
-			group_id: 0,
-			price_per_unit: buy_order_storage.price_per_unit,
-			project_id: 0,
-		}
-		.into()
-	);*/
-	let project_id = 0;
-	// seller receivable should be updated with the correct amount
-	let seller_receivables = SellerReceivables::<Test>::get(seller,USDT);
-	// seller 9 treasury 1
-	assert_eq!(seller_receivables, 900);
-	let pot = Treasury::<Test>::get(project_id,USDT);
-	assert_eq!(pot,100);
-
-	// buy order storage should be cleared since payment is done
-	let buy_order_storage = BuyOrders::<Test>::get(0);
-	assert!(buy_order_storage.is_none());
-
-	// Asset balance should be set correctly
-	assert_eq!(Assets::balance(asset_id, seller), 95);
-	assert_eq!(Assets::balance(asset_id, dex_account), 4);
-	assert_eq!(Assets::balance(asset_id, buyer), 0);// Retest
-	
+		assert_ok!(Dex::claim_tokens(RuntimeOrigin::signed(seller),USDT,450));
+		assert_eq!(SellerReceivables::<Test>::get(seller,USDT),450);
+		assert_eq!(Tokens::free_balance(USDT, &seller), 450);
 }
 
 fn run_to_block(n: u64) {
@@ -354,7 +289,7 @@ fn it_works_for_create_bounty() {
 
 		init_project_and_treasury::<Test>();
 
-		assert_eq!(Tokens::free_balance(USDT, &dex_account), 1110);
+		assert_eq!(Tokens::free_balance(USDT, &dex_account), 660);
 
 		let pot = Treasury::<Test>::get(project_id,USDT);
 		assert_eq!(pot,100);
