@@ -16,8 +16,8 @@ If you need a refresher setting up your Substrate environment, see [Substrate's 
 
 ```bash
 # Fetch the code
-git clone https://github.com/moondance-labs/tanssi
-cd tanssi
+git clone https://github.com/foresta-network/foresta-tanssi-1.6
+cd foresta-tanssi-1.6
 
 # Build the node (The first build will be long (~30min))
 cargo build --release
